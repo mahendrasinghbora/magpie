@@ -36,9 +36,9 @@ export function LoginPage() {
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
             <img
-              src="/pwa-192x192.png"
+              src={`${import.meta.env.BASE_URL}pwa-192x192.png`}
               alt="Magpie"
-              className="h-20 w-20 rounded-2xl"
+              className="h-20 w-20 rounded-full"
             />
           </div>
           <CardTitle className="text-2xl">Welcome to Magpie</CardTitle>

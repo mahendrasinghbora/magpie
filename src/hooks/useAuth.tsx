@@ -14,7 +14,8 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { auth, googleProvider, db } from '@/config/firebase'
 import type { User } from '@/types'
-import { generateAvatar } from '@/lib/avatar'
+import { generateAvatar, type AvatarStyleKey } from '@/lib/avatar'
+import { updateUserProfile } from '@/lib/firestore'
 
 interface AuthContextType {
   user: User | null
@@ -22,6 +23,7 @@ interface AuthContextType {
   loading: boolean
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
+  updateUser: (updates: Partial<Pick<User, 'displayName' | 'photoURL' | 'avatarStyle'>>) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -43,20 +45,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           if (userSnap.exists()) {
             const userData = userSnap.data()
+            const avatarStyle: AvatarStyleKey = userData.avatarStyle || 'thumbs'
             setUser({
               id: fbUser.uid,
               email: fbUser.email || '',
               displayName: userData.displayName || fbUser.displayName || '',
-              photoURL: userData.photoURL || generateAvatar(fbUser.email || fbUser.uid),
+              photoURL: userData.photoURL || generateAvatar(fbUser.email || fbUser.uid, avatarStyle),
+              avatarStyle,
               createdAt: userData.createdAt?.toDate() || new Date(),
               householdId: userData.householdId || null,
             })
           } else {
             // Create new user document
+            const defaultAvatarStyle: AvatarStyleKey = 'thumbs'
             const newUser: Omit<User, 'id' | 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> } = {
               email: fbUser.email || '',
               displayName: fbUser.displayName || '',
-              photoURL: generateAvatar(fbUser.email || fbUser.uid),
+              photoURL: generateAvatar(fbUser.email || fbUser.uid, defaultAvatarStyle),
+              avatarStyle: defaultAvatarStyle,
               householdId: null,
               createdAt: serverTimestamp(),
             }
@@ -67,7 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               id: fbUser.uid,
               email: fbUser.email || '',
               displayName: fbUser.displayName || '',
-              photoURL: generateAvatar(fbUser.email || fbUser.uid),
+              photoURL: generateAvatar(fbUser.email || fbUser.uid, defaultAvatarStyle),
+              avatarStyle: defaultAvatarStyle,
               createdAt: new Date(),
               householdId: null,
             })
@@ -75,11 +82,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch (error) {
           console.error('Error loading user data from Firestore:', error)
           // Still set user with basic info from Firebase Auth
+          const defaultAvatarStyle: AvatarStyleKey = 'thumbs'
           setUser({
             id: fbUser.uid,
             email: fbUser.email || '',
             displayName: fbUser.displayName || '',
-            photoURL: generateAvatar(fbUser.email || fbUser.uid),
+            photoURL: generateAvatar(fbUser.email || fbUser.uid, defaultAvatarStyle),
+            avatarStyle: defaultAvatarStyle,
             createdAt: new Date(),
             householdId: null,
           })
@@ -113,6 +122,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const updateUser = async (updates: Partial<Pick<User, 'displayName' | 'photoURL' | 'avatarStyle'>>) => {
+    if (!user) return
+
+    try {
+      await updateUserProfile(user.id, updates)
+      setUser((prev) => prev ? { ...prev, ...updates } : null)
+    } catch (error) {
+      console.error('Error updating user profile:', error)
+      throw error
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -121,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         signInWithGoogle,
         signOut,
+        updateUser,
       }}
     >
       {children}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTheme } from 'next-themes'
 import {
   LogOut,
   CreditCard,
@@ -9,6 +10,10 @@ import {
   Download,
   ChevronRight,
   Wallet,
+  User,
+  Moon,
+  Sun,
+  Monitor,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
@@ -25,11 +30,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 export function SettingsPage() {
   const { user, signOut } = useAuth()
   const { household, expenses, categories } = useStore()
   const navigate = useNavigate()
+  const { theme, setTheme } = useTheme()
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
 
   const handleSignOut = async () => {
@@ -71,6 +84,12 @@ export function SettingsPage() {
   }
 
   const settingsItems = [
+    {
+      icon: User,
+      label: 'Edit Profile',
+      description: 'Change your name and avatar',
+      onClick: () => navigate('/settings/profile'),
+    },
     {
       icon: Wallet,
       label: 'Monthly Income',
@@ -158,6 +177,55 @@ export function SettingsPage() {
               </button>
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      {/* Theme Selection */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Appearance</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {theme === 'dark' ? (
+                <Moon className="h-5 w-5" />
+              ) : theme === 'light' ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Monitor className="h-5 w-5" />
+              )}
+              <div>
+                <p className="font-medium">Theme</p>
+                <p className="text-sm text-muted-foreground">Choose your preferred theme</p>
+              </div>
+            </div>
+            <Select value={theme} onValueChange={setTheme}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="light">
+                  <div className="flex items-center gap-2">
+                    <Sun className="h-4 w-4" />
+                    Light
+                  </div>
+                </SelectItem>
+                <SelectItem value="dark">
+                  <div className="flex items-center gap-2">
+                    <Moon className="h-4 w-4" />
+                    Dark
+                  </div>
+                </SelectItem>
+                <SelectItem value="system">
+                  <div className="flex items-center gap-2">
+                    <Monitor className="h-4 w-4" />
+                    System
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
 

@@ -1,9 +1,12 @@
+import type { AvatarStyleKey } from '@/lib/avatar'
+
 // User types
 export interface User {
   id: string
   email: string
   displayName: string
   photoURL: string | null
+  avatarStyle: AvatarStyleKey
   createdAt: Date
   householdId: string | null
 }

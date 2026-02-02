@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/config/firebase'
 import type {
+  User,
   Expense,
   Category,
   PaymentMethod,
@@ -451,4 +452,13 @@ export async function getHouseholdMembers(
     displayName: string
     photoURL: string
   }[]
+}
+
+// ============== User Profile ==============
+
+export async function updateUserProfile(
+  userId: string,
+  updates: Partial<Omit<User, 'id' | 'createdAt' | 'householdId'>>
+): Promise<void> {
+  await updateDoc(doc(db, 'users', userId), updates)
 }

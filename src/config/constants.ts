@@ -83,14 +83,16 @@ export const CURRENCY = {
   locale: 'en-IN',
 }
 
-// Format amount in INR
-export function formatAmount(amount: number): string {
-  return new Intl.NumberFormat(CURRENCY.locale, {
+// Format amount in INR (with 2 decimal places)
+export function formatAmount(amount: number, showNegative = false): string {
+  const formatted = new Intl.NumberFormat(CURRENCY.locale, {
     style: 'currency',
     currency: CURRENCY.code,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount)
+
+  return showNegative ? `-${formatted}` : formatted
 }
 
 // Format date
@@ -99,6 +101,15 @@ export function formatDate(date: Date): string {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+  }).format(date)
+}
+
+// Format time (e.g., "10:30 PM")
+export function formatTime(date: Date): string {
+  return new Intl.DateTimeFormat(CURRENCY.locale, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
   }).format(date)
 }
 

@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { formatAmount, formatDate, formatMonth } from '@/config/constants'
+import { formatAmount, formatDate, formatMonth, formatTime } from '@/config/constants'
 import { getExpenses, getCategories } from '@/lib/firestore'
 import { getIconComponent } from '@/lib/icons'
 import { ExpenseFilters } from '@/components/expense/ExpenseFilters'
@@ -190,49 +190,81 @@ export function ExpensesPage() {
                 const Icon = category ? getIconComponent(category.icon) : null
                 const member = getMemberInfo(expense.userId)
 
+                // Title: Payee if exists, otherwise category name
+                const title = expense.payee || category?.name || 'Unknown'
+                // Subtitle: Category (if payee shown) + Notes
+                const showCategory = expense.payee && category?.name
+                const maxNotesLength = 30
+                const truncatedNotes = expense.notes.length > maxNotesLength
+                  ? expense.notes.substring(0, maxNotesLength) + '...'
+                  : expense.notes
+                // Tags: max 3
+                const displayTags = expense.tags.slice(0, 3)
+
                 return (
                   <Card
                     key={expense.id}
                     className="cursor-pointer transition-colors hover:bg-muted/50"
                     onClick={() => navigate(`/expense/${expense.id}`)}
                   >
-                    <CardContent className="flex items-center gap-3 p-3">
+                    <CardContent className="flex gap-3 p-3">
                       {/* Category Icon */}
                       <div
-                        className="flex h-10 w-10 items-center justify-center rounded-full"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
                         style={{ backgroundColor: `${category?.color}20` }}
                       >
                         {Icon && <Icon className="h-5 w-5" style={{ color: category?.color }} />}
                       </div>
 
                       {/* Details */}
-                      <div className="flex-1 overflow-hidden">
+                      <div className="flex-1 min-w-0">
+                        {/* Title row */}
                         <div className="flex items-center gap-2">
-                          <span className="font-medium truncate">
-                            {expense.payee || category?.name || 'Unknown'}
-                          </span>
+                          <span className="font-medium truncate">{title}</span>
                           {expense.type === 'transfer' && (
-                            <Badge variant="secondary" className="text-xs">
+                            <Badge variant="secondary" className="text-xs shrink-0">
                               Transfer
                             </Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{category?.name}</span>
-                          {expense.tags.length > 0 && (
-                            <>
-                              <span>•</span>
-                              <span>{expense.tags[0]}</span>
-                            </>
-                          )}
+
+                        {/* Subtitle: Category • Notes */}
+                        <div className="text-xs text-muted-foreground truncate">
+                          {showCategory && <span className="font-medium">{category?.name}</span>}
+                          {showCategory && truncatedNotes && <span> • </span>}
+                          {truncatedNotes && <span className="italic">{truncatedNotes}</span>}
+                          {!showCategory && !truncatedNotes && <span className="font-medium">{category?.name}</span>}
                         </div>
+
+                        {/* Tags row */}
+                        {displayTags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {displayTags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="text-[10px] px-1.5 py-0.5 rounded-full font-normal border"
+                                style={{
+                                  borderColor: category?.color,
+                                  color: category?.color,
+                                }}
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
-                      {/* Amount and User */}
-                      <div className="text-right">
-                        <p className="font-semibold">{formatAmount(expense.amount)}</p>
+                      {/* Amount and Time */}
+                      <div className="text-right shrink-0">
+                        <p className="font-semibold" style={{ color: '#e11d48' }}>
+                          {formatAmount(expense.amount, true)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatTime(expense.date)}
+                        </p>
                         {user?.householdId && member && viewMode === 'all' && (
-                          <Avatar className="ml-auto h-5 w-5">
+                          <Avatar className="ml-auto mt-1 h-5 w-5">
                             <AvatarImage src={member.photoURL} />
                             <AvatarFallback className="text-[10px]">
                               {member.displayName.charAt(0)}

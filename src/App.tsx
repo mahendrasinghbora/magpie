@@ -17,9 +17,12 @@ import { TagsPage } from '@/pages/settings/TagsPage'
 import { ProfilePage } from '@/pages/settings/ProfilePage'
 import { PaymentBreakdownPage } from '@/pages/PaymentBreakdownPage'
 
+// Get base path for GitHub Pages deployment
+const basename = import.meta.env.BASE_URL
+
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         <AuthProvider>
           <Routes>

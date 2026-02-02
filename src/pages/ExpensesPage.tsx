@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
 import { Input } from '@/components/ui/input'
@@ -10,8 +11,9 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { PullToRefresh } from '@/components/PullToRefresh'
+import { SwipeableExpenseCard } from '@/components/expense/SwipeableExpenseCard'
 import { formatAmount, formatDate, formatMonth, formatTime } from '@/config/constants'
-import { getExpenses, getCategories } from '@/lib/firestore'
+import { getExpenses, getCategories, deleteExpense } from '@/lib/firestore'
 import { getIconComponent } from '@/lib/icons'
 import { ExpenseFilters } from '@/components/expense/ExpenseFilters'
 import { ExpensesSkeleton } from '@/components/skeletons/ExpensesSkeleton'
@@ -30,6 +32,7 @@ export function ExpensesPage() {
     filters,
     viewMode,
     householdMembers,
+    removeExpense,
   } = useStore()
 
   const [loading, setLoading] = useState(true)
@@ -81,6 +84,13 @@ export function ExpensesPage() {
   const handleRefresh = useCallback(async () => {
     await loadData(false)
   }, [loadData])
+
+  // Delete expense handler
+  const handleDeleteExpense = useCallback(async (expenseId: string) => {
+    await deleteExpense(expenseId)
+    removeExpense(expenseId)
+    toast.success('Expense deleted')
+  }, [removeExpense])
 
   // Filter expenses
   const filteredExpenses = expenses.filter((expense) => {
@@ -207,78 +217,80 @@ export function ExpensesPage() {
                 const displayTags = expense.tags.slice(0, 3)
 
                 return (
-                  <Card
+                  <SwipeableExpenseCard
                     key={expense.id}
-                    className="cursor-pointer transition-colors hover:bg-muted/50"
+                    onDelete={() => handleDeleteExpense(expense.id)}
                     onClick={() => navigate(`/expense/${expense.id}`)}
                   >
-                    <CardContent className="flex gap-3 p-3">
-                      {/* Category Icon */}
-                      <div
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-                        style={{ backgroundColor: `${category?.color}20` }}
-                      >
-                        {Icon && <Icon className="h-5 w-5" style={{ color: category?.color }} />}
-                      </div>
+                    <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+                      <CardContent className="flex gap-3 p-3">
+                        {/* Category Icon */}
+                        <div
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                          style={{ backgroundColor: `${category?.color}20` }}
+                        >
+                          {Icon && <Icon className="h-5 w-5" style={{ color: category?.color }} />}
+                        </div>
 
-                      {/* Details */}
-                      <div className="flex-1 min-w-0">
-                        {/* Title row */}
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium truncate">{title}</span>
-                          {expense.type === 'transfer' && (
-                            <Badge variant="secondary" className="text-xs shrink-0">
-                              Transfer
-                            </Badge>
+                        {/* Details */}
+                        <div className="flex-1 min-w-0">
+                          {/* Title row */}
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium truncate">{title}</span>
+                            {expense.type === 'transfer' && (
+                              <Badge variant="secondary" className="text-xs shrink-0">
+                                Transfer
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Subtitle: Category • Notes */}
+                          <div className="text-xs text-muted-foreground truncate">
+                            {showCategory && <span className="font-medium">{category?.name}</span>}
+                            {showCategory && truncatedNotes && <span> • </span>}
+                            {truncatedNotes && <span className="italic">{truncatedNotes}</span>}
+                            {!showCategory && !truncatedNotes && <span className="font-medium">{category?.name}</span>}
+                          </div>
+
+                          {/* Tags row */}
+                          {displayTags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {displayTags.map((tag) => (
+                                <span
+                                  key={tag}
+                                  className="text-[10px] px-1.5 py-0.5 rounded-full font-normal border"
+                                  style={{
+                                    borderColor: category?.color,
+                                    color: category?.color,
+                                  }}
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
                           )}
                         </div>
 
-                        {/* Subtitle: Category • Notes */}
-                        <div className="text-xs text-muted-foreground truncate">
-                          {showCategory && <span className="font-medium">{category?.name}</span>}
-                          {showCategory && truncatedNotes && <span> • </span>}
-                          {truncatedNotes && <span className="italic">{truncatedNotes}</span>}
-                          {!showCategory && !truncatedNotes && <span className="font-medium">{category?.name}</span>}
+                        {/* Amount and Time */}
+                        <div className="text-right shrink-0">
+                          <p className="font-semibold" style={{ color: '#e11d48' }}>
+                            {formatAmount(expense.amount, true)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatTime(expense.date)}
+                          </p>
+                          {user?.householdId && member && viewMode === 'all' && (
+                            <Avatar className="ml-auto mt-1 h-5 w-5">
+                              <AvatarImage src={member.photoURL} />
+                              <AvatarFallback className="text-[10px]">
+                                {member.displayName.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
                         </div>
-
-                        {/* Tags row */}
-                        {displayTags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            {displayTags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="text-[10px] px-1.5 py-0.5 rounded-full font-normal border"
-                                style={{
-                                  borderColor: category?.color,
-                                  color: category?.color,
-                                }}
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Amount and Time */}
-                      <div className="text-right shrink-0">
-                        <p className="font-semibold" style={{ color: '#e11d48' }}>
-                          {formatAmount(expense.amount, true)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatTime(expense.date)}
-                        </p>
-                        {user?.householdId && member && viewMode === 'all' && (
-                          <Avatar className="ml-auto mt-1 h-5 w-5">
-                            <AvatarImage src={member.photoURL} />
-                            <AvatarFallback className="text-[10px]">
-                              {member.displayName.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
+                  </SwipeableExpenseCard>
                 )
               })}
             </div>

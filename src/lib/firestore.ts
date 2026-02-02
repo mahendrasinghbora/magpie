@@ -67,6 +67,17 @@ export async function deleteExpense(id: string): Promise<void> {
   await deleteDoc(doc(db, 'expenses', id))
 }
 
+export async function getExpenseById(id: string): Promise<Expense | null> {
+  const docSnap = await getDoc(doc(db, 'expenses', id))
+  if (!docSnap.exists()) {
+    return null
+  }
+  return {
+    id: docSnap.id,
+    ...convertTimestamps(docSnap.data()),
+  } as Expense
+}
+
 export async function getExpenses(
   userId: string,
   householdId: string | null,

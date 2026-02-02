@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
@@ -14,6 +15,7 @@ import { UserComparison } from '@/components/dashboard/UserComparison'
 import type { MonthlyStats, CategoryStats, UserStats } from '@/types'
 
 export function DashboardPage() {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const {
     currentMonth,
@@ -265,6 +267,22 @@ export function DashboardPage() {
           />
         </div>
       )}
+
+      {/* Payment Breakdown Link */}
+      <Card
+        className="cursor-pointer transition-colors hover:bg-accent"
+        onClick={() => navigate('/payment-breakdown')}
+      >
+        <CardContent className="flex items-center justify-between py-4">
+          <div>
+            <p className="font-medium">Payment Breakdown</p>
+            <p className="text-sm text-muted-foreground">
+              View spending by payment method
+            </p>
+          </div>
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        </CardContent>
+      </Card>
 
       {/* Category Pie Chart */}
       {stats && stats.byCategory.length > 0 && (

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ArrowLeft, Calendar as CalendarIcon, X } from 'lucide-react'
+import { ArrowLeft, Calendar as CalendarIcon, Clock, Trash2, X } from 'lucide-react'
 import { format } from 'date-fns'
+import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
@@ -21,16 +22,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
-import { CURRENCY } from '@/config/constants'
+import { CURRENCY, PAYMENT_METHOD_TYPES } from '@/config/constants'
 import {
   createExpense,
   updateExpense as updateExpenseInDB,
+  deleteExpense as deleteExpenseFromDB,
+  getExpenseById,
   getCategories,
   getPaymentMethods,
   getTags,
 } from '@/lib/firestore'
+import type { Expense } from '@/types'
 import { getIconComponent } from '@/lib/icons'
+import type { PaymentMethodType } from '@/types'
 
 const expenseSchema = z.object({
   amount: z.number().min(1, 'Amount is required'),
@@ -55,34 +71,41 @@ export function ExpenseFormPage() {
     setPaymentMethods,
     tags,
     setTags,
-    expenses,
     addExpense,
     updateExpense,
+    removeExpense,
   } = useStore()
 
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [amountInput, setAmountInput] = useState('')
+  const [timeInput, setTimeInput] = useState('')
+  const [selectedPaymentType, setSelectedPaymentType] = useState<PaymentMethodType | ''>('')
+  const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('')
+  const [existingExpense, setExistingExpense] = useState<Expense | null>(null)
+  const paymentMethodInitialized = useRef(false)
 
   const isEditing = !!id
-  const existingExpense = isEditing ? expenses.find((e) => e.id === id) : null
 
   const {
     register,
     handleSubmit,
     setValue,
     watch,
+    reset,
     formState: { errors },
   } = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
-      amount: existingExpense?.amount || 0,
-      categoryId: existingExpense?.categoryId || '',
-      paymentMethodId: existingExpense?.paymentMethodId || '',
-      payee: existingExpense?.payee || '',
-      notes: existingExpense?.notes || '',
-      date: existingExpense?.date || new Date(),
-      type: existingExpense?.type || 'expense',
+      amount: 0,
+      categoryId: '',
+      paymentMethodId: '',
+      payee: '',
+      notes: '',
+      date: new Date(),
+      type: 'expense',
     },
   })
 
@@ -94,36 +117,83 @@ export function ExpenseFormPage() {
     async function loadData() {
       if (!user) return
 
+      setInitialLoading(true)
       try {
+        // Load all required data in parallel
+        const promises: Promise<void>[] = []
+
         if (categories.length === 0) {
-          const categoriesData = await getCategories(user.householdId)
-          setCategories(categoriesData)
+          promises.push(
+            getCategories(user.householdId).then((data) => setCategories(data))
+          )
         }
 
-        if (paymentMethods.length === 0) {
-          const paymentMethodsData = await getPaymentMethods(user.id)
-          setPaymentMethods(paymentMethodsData)
-        }
+        // Always load payment methods fresh to ensure we have the latest
+        promises.push(
+          getPaymentMethods(user.id).then((data) => setPaymentMethods(data))
+        )
 
         if (tags.length === 0) {
-          const tagsData = await getTags(user.householdId)
-          setTags(tagsData)
+          promises.push(
+            getTags(user.householdId).then((data) => setTags(data))
+          )
         }
+
+        // Load the expense if editing
+        if (isEditing && id) {
+          promises.push(
+            getExpenseById(id).then((expense) => {
+              if (expense) {
+                setExistingExpense(expense)
+              }
+            })
+          )
+        }
+
+        await Promise.all(promises)
       } catch (error) {
         console.error('Error loading data:', error)
+      } finally {
+        setInitialLoading(false)
       }
     }
 
     loadData()
-  }, [user])
+  }, [user, id, isEditing])
 
-  // Set existing expense data
+  // Set existing expense data and form values once expense is loaded
   useEffect(() => {
     if (existingExpense) {
+      // Reset form with existing expense values
+      reset({
+        amount: existingExpense.amount,
+        categoryId: existingExpense.categoryId,
+        paymentMethodId: existingExpense.paymentMethodId || '',
+        payee: existingExpense.payee,
+        notes: existingExpense.notes,
+        date: existingExpense.date,
+        type: existingExpense.type,
+      })
+
+      // Set local state
       setAmountInput(existingExpense.amount.toString())
-      setSelectedTags(existingExpense.tags)
+      setSelectedTags(existingExpense.tags || [])
+      setTimeInput(format(existingExpense.date, 'HH:mm'))
+
+      // Set payment method state (only once)
+      if (existingExpense.paymentMethodId && paymentMethods.length > 0 && !paymentMethodInitialized.current) {
+        const pm = paymentMethods.find((p) => p.id === existingExpense.paymentMethodId)
+        if (pm) {
+          paymentMethodInitialized.current = true
+          setSelectedPaymentType(pm.type)
+          setSelectedPaymentMethodId(existingExpense.paymentMethodId)
+        }
+      }
+    } else if (!isEditing) {
+      // Set current time for new expenses
+      setTimeInput(format(new Date(), 'HH:mm'))
     }
-  }, [existingExpense])
+  }, [existingExpense, paymentMethods, reset, isEditing])
 
   // Auto-select type based on category
   useEffect(() => {
@@ -150,24 +220,69 @@ export function ExpenseFormPage() {
     )
   }
 
+  const handleDelete = async () => {
+    if (!id) return
+
+    setDeleting(true)
+    try {
+      await deleteExpenseFromDB(id)
+      removeExpense(id)
+      toast.success('Expense deleted')
+      navigate(-1)
+    } catch (error) {
+      console.error('Error deleting expense:', error)
+      toast.error('Failed to delete expense')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  // Combine date and time
+  const getDateTimeFromInputs = (date: Date, time: string): Date => {
+    const [hours, minutes] = time.split(':').map(Number)
+    const result = new Date(date)
+    result.setHours(hours || 0, minutes || 0, 0, 0)
+    return result
+  }
+
+  // Filter payment methods by selected type
+  const filteredPaymentMethods = selectedPaymentType
+    ? paymentMethods.filter((pm) => pm.type === selectedPaymentType)
+    : []
+
+  const handlePaymentTypeChange = (type: PaymentMethodType | '') => {
+    // Ignore empty value if we've already initialized from existing expense
+    // This prevents Radix Select from resetting the value during controlled updates
+    if (type === '' && paymentMethodInitialized.current) {
+      return
+    }
+    setSelectedPaymentType(type)
+    setSelectedPaymentMethodId('') // Reset selected payment method
+  }
+
   const onSubmit = async (data: ExpenseFormData) => {
     if (!user) return
 
     setLoading(true)
     try {
+      // Combine date and time
+      const dateWithTime = getDateTimeFromInputs(data.date, timeInput)
+
       const expenseData = {
         ...data,
+        date: dateWithTime,
         userId: user.id,
         householdId: user.householdId,
         tags: selectedTags,
         payee: data.payee || '',
         notes: data.notes || '',
-        paymentMethodId: data.paymentMethodId || null,
+        paymentMethodId: selectedPaymentMethodId || null,
       }
 
       if (isEditing && id) {
         await updateExpenseInDB(id, expenseData)
         updateExpense(id, { ...expenseData, id, updatedAt: new Date() })
+        toast.success('Expense updated')
       } else {
         const newId = await createExpense(expenseData)
         addExpense({
@@ -176,26 +291,66 @@ export function ExpenseFormPage() {
           createdAt: new Date(),
           updatedAt: new Date(),
         })
+        toast.success('Expense added')
       }
 
       navigate(-1)
     } catch (error) {
       console.error('Error saving expense:', error)
+      toast.error('Failed to save expense')
     } finally {
       setLoading(false)
     }
   }
 
+  if (initialLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center gap-4 bg-background p-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <h1 className="text-lg font-semibold">
-          {isEditing ? 'Edit Expense' : 'Add Expense'}
-        </h1>
+      <div className="sticky top-0 z-10 flex items-center justify-between bg-background p-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h1 className="text-lg font-semibold">
+            {isEditing ? 'Edit Expense' : 'Add Expense'}
+          </h1>
+        </div>
+        {isEditing && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="text-destructive">
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete expense?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete this
+                  expense.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  disabled={deleting}
+                >
+                  {deleting ? 'Deleting...' : 'Delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 p-4">
@@ -254,47 +409,90 @@ export function ExpenseFormPage() {
           )}
         </div>
 
-        {/* Date Picker */}
+        {/* Date and Time Picker */}
         <div className="space-y-2">
-          <Label>Date</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="w-full justify-start">
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => date && setValue('date', date)}
-                initialFocus
+          <Label>Date & Time</Label>
+          <div className="flex gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="flex-1 justify-start">
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setValue('date', date)}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            <div className="relative">
+              <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="time"
+                value={timeInput}
+                onChange={(e) => setTimeInput(e.target.value)}
+                className="w-[130px] pl-10"
               />
-            </PopoverContent>
-          </Popover>
+            </div>
+          </div>
         </div>
 
-        {/* Payment Method */}
+        {/* Payment Method - Two-step selection */}
         {paymentMethods.length > 0 && (
           <div className="space-y-2">
             <Label>Payment Method (Optional)</Label>
-            <Select
-              value={watch('paymentMethodId') || ''}
-              onValueChange={(v) => setValue('paymentMethodId', v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select payment method" />
-              </SelectTrigger>
-              <SelectContent>
-                {paymentMethods.map((pm) => (
-                  <SelectItem key={pm.id} value={pm.id}>
-                    {pm.name}
-                    {pm.lastFourDigits && ` (${pm.lastFourDigits})`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              {/* Step 1: Select payment type */}
+              <Select
+                value={selectedPaymentType}
+                onValueChange={(v) => handlePaymentTypeChange(v as PaymentMethodType | '')}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_METHOD_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Step 2: Select specific method */}
+              <Select
+                value={selectedPaymentMethodId}
+                onValueChange={(v) => {
+                  // Ignore empty value if we've already initialized from existing expense
+                  if (v === '' && paymentMethodInitialized.current) {
+                    return
+                  }
+                  setSelectedPaymentMethodId(v)
+                }}
+                disabled={!selectedPaymentType || filteredPaymentMethods.length === 0}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder={selectedPaymentType ? 'Select' : 'Select type first'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredPaymentMethods.map((pm) => (
+                    <SelectItem key={pm.id} value={pm.id}>
+                      {pm.name}
+                      {pm.lastFourDigits && ` (${pm.lastFourDigits})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedPaymentType && filteredPaymentMethods.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No {PAYMENT_METHOD_TYPES.find((t) => t.value === selectedPaymentType)?.label} payment methods added yet.
+              </p>
+            )}
           </div>
         )}
 

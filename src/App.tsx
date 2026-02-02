@@ -13,6 +13,7 @@ import { IncomePage } from '@/pages/settings/IncomePage'
 import { HouseholdPage } from '@/pages/settings/HouseholdPage'
 import { CategoriesPage } from '@/pages/settings/CategoriesPage'
 import { TagsPage } from '@/pages/settings/TagsPage'
+import { PaymentBreakdownPage } from '@/pages/PaymentBreakdownPage'
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
             <Route path="/settings/household" element={<HouseholdPage />} />
             <Route path="/settings/categories" element={<CategoriesPage />} />
             <Route path="/settings/tags" element={<TagsPage />} />
+            <Route path="/payment-breakdown" element={<PaymentBreakdownPage />} />
           </Route>
         </Routes>
         <Toaster />

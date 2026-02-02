@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   Timestamp,
   arrayUnion,
+  writeBatch,
   type DocumentData,
   type QueryConstraint,
 } from 'firebase/firestore'
@@ -355,6 +356,31 @@ export async function getPendingInvites(email: string): Promise<HouseholdInvite[
   })) as HouseholdInvite[]
 }
 
+// Migrate user's existing expenses to a household
+async function migrateUserExpensesToHousehold(
+  userId: string,
+  householdId: string
+): Promise<void> {
+  // Find all user's expenses that don't have a householdId
+  const q = query(
+    collection(db, 'expenses'),
+    where('userId', '==', userId),
+    where('householdId', '==', null)
+  )
+  const snapshot = await getDocs(q)
+
+  if (snapshot.empty) {
+    return
+  }
+
+  // Update all expenses in a batch
+  const batch = writeBatch(db)
+  snapshot.docs.forEach((expenseDoc) => {
+    batch.update(expenseDoc.ref, { householdId })
+  })
+  await batch.commit()
+}
+
 export async function acceptInvite(
   inviteId: string,
   userId: string
@@ -378,6 +404,9 @@ export async function acceptInvite(
   await updateDoc(doc(db, 'users', userId), {
     householdId: invite.householdId,
   })
+
+  // Migrate user's existing expenses to the household
+  await migrateUserExpensesToHousehold(userId, invite.householdId)
 
   // Mark invite as accepted
   await updateDoc(inviteRef, {

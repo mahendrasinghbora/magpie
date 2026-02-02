@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
@@ -68,8 +69,10 @@ export function IncomePage() {
       const monthKey = getMonthKey(currentMonth)
       await setMonthlyIncome(user.id, monthKey, amount)
       setIncome(amount)
+      toast.success('Income saved successfully')
     } catch (error) {
       console.error('Error saving income:', error)
+      toast.error('Failed to save income')
     } finally {
       setSaving(false)
     }
@@ -123,10 +126,11 @@ export function IncomePage() {
               </div>
             </div>
 
-            {income !== null && income !== parseInt(incomeInput) && (
-              <p className="text-sm text-muted-foreground">
-                Currently set: {formatAmount(income)}
-              </p>
+            {income !== null && (
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <Check className="h-4 w-4" />
+                <span>Saved: {formatAmount(income)}</span>
+              </div>
             )}
 
             <Button

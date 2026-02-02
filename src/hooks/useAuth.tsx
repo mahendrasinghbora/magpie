@@ -36,32 +36,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setFirebaseUser(fbUser)
 
       if (fbUser) {
-        // Check if user exists in Firestore
-        const userRef = doc(db, 'users', fbUser.uid)
-        const userSnap = await getDoc(userRef)
+        try {
+          // Check if user exists in Firestore
+          const userRef = doc(db, 'users', fbUser.uid)
+          const userSnap = await getDoc(userRef)
 
-        if (userSnap.exists()) {
-          const userData = userSnap.data()
-          setUser({
-            id: fbUser.uid,
-            email: fbUser.email || '',
-            displayName: userData.displayName || fbUser.displayName || '',
-            photoURL: userData.photoURL || generateAvatar(fbUser.email || fbUser.uid),
-            createdAt: userData.createdAt?.toDate() || new Date(),
-            householdId: userData.householdId || null,
-          })
-        } else {
-          // Create new user document
-          const newUser: Omit<User, 'id' | 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> } = {
-            email: fbUser.email || '',
-            displayName: fbUser.displayName || '',
-            photoURL: generateAvatar(fbUser.email || fbUser.uid),
-            householdId: null,
-            createdAt: serverTimestamp(),
+          if (userSnap.exists()) {
+            const userData = userSnap.data()
+            setUser({
+              id: fbUser.uid,
+              email: fbUser.email || '',
+              displayName: userData.displayName || fbUser.displayName || '',
+              photoURL: userData.photoURL || generateAvatar(fbUser.email || fbUser.uid),
+              createdAt: userData.createdAt?.toDate() || new Date(),
+              householdId: userData.householdId || null,
+            })
+          } else {
+            // Create new user document
+            const newUser: Omit<User, 'id' | 'createdAt'> & { createdAt: ReturnType<typeof serverTimestamp> } = {
+              email: fbUser.email || '',
+              displayName: fbUser.displayName || '',
+              photoURL: generateAvatar(fbUser.email || fbUser.uid),
+              householdId: null,
+              createdAt: serverTimestamp(),
+            }
+
+            await setDoc(userRef, newUser)
+
+            setUser({
+              id: fbUser.uid,
+              email: fbUser.email || '',
+              displayName: fbUser.displayName || '',
+              photoURL: generateAvatar(fbUser.email || fbUser.uid),
+              createdAt: new Date(),
+              householdId: null,
+            })
           }
-
-          await setDoc(userRef, newUser)
-
+        } catch (error) {
+          console.error('Error loading user data from Firestore:', error)
+          // Still set user with basic info from Firebase Auth
           setUser({
             id: fbUser.uid,
             email: fbUser.email || '',

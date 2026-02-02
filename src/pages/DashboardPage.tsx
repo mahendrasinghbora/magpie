@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { formatAmount, formatMonth, getMonthKey } from '@/config/constants'
-import { getExpenses, getCategories, getMonthlyIncome, getHouseholdMembers } from '@/lib/firestore'
+import { getExpenses, getCategories, getMonthlyIncome, getHousehold, getHouseholdMembers } from '@/lib/firestore'
 import { CategoryPieChart } from '@/components/dashboard/CategoryPieChart'
 import { StatCard } from '@/components/dashboard/StatCard'
 import { UserComparison } from '@/components/dashboard/UserComparison'
@@ -31,6 +31,7 @@ export function DashboardPage() {
     monthlyIncome,
     setMonthlyIncome,
     household,
+    setHousehold,
     householdMembers,
     setHouseholdMembers,
   } = useStore()
@@ -76,17 +77,23 @@ export function DashboardPage() {
       const incomeData = await getMonthlyIncome(user.id, monthKey)
       setMonthlyIncome(incomeData)
 
-      // Load household members if in household
-      if (user.householdId && householdMembers.length === 0) {
-        const members = await getHouseholdMembers(user.householdId)
-        setHouseholdMembers(members)
+      // Load household and members if in household
+      if (user.householdId) {
+        if (!household) {
+          const householdData = await getHousehold(user.householdId)
+          setHousehold(householdData)
+        }
+        if (householdMembers.length === 0) {
+          const members = await getHouseholdMembers(user.householdId)
+          setHouseholdMembers(members)
+        }
       }
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
       setLoading(false)
     }
-  }, [user, currentMonth, categories.length, householdMembers.length, setExpenses, setCategories, setMonthlyIncome, setHouseholdMembers])
+  }, [user, currentMonth, categories.length, household, householdMembers.length, setExpenses, setCategories, setMonthlyIncome, setHousehold, setHouseholdMembers])
 
   // Initial load and on month change
   useEffect(() => {

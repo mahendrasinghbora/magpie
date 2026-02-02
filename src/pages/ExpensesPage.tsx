@@ -14,6 +14,7 @@ import { formatAmount, formatDate, formatMonth, formatTime } from '@/config/cons
 import { getExpenses, getCategories } from '@/lib/firestore'
 import { getIconComponent } from '@/lib/icons'
 import { ExpenseFilters } from '@/components/expense/ExpenseFilters'
+import { ExpensesSkeleton } from '@/components/skeletons/ExpensesSkeleton'
 import type { Expense } from '@/types'
 
 export function ExpensesPage() {
@@ -135,11 +136,7 @@ export function ExpensesPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    )
+    return <ExpensesSkeleton />
   }
 
   return (

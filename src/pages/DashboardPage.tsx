@@ -13,6 +13,7 @@ import { getExpenses, getCategories, getMonthlyIncome, getHouseholdMembers } fro
 import { CategoryPieChart } from '@/components/dashboard/CategoryPieChart'
 import { StatCard } from '@/components/dashboard/StatCard'
 import { UserComparison } from '@/components/dashboard/UserComparison'
+import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton'
 import type { MonthlyStats, CategoryStats, UserStats } from '@/types'
 
 export function DashboardPage() {
@@ -178,11 +179,7 @@ export function DashboardPage() {
   }, [expenses, categories, viewMode, monthlyIncome, householdMembers, user])
 
   if (loading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    )
+    return <DashboardSkeleton />
   }
 
   return (

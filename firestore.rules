@@ -1,0 +1,117 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Helper function to check if user is part of a household
+    function isHouseholdMember(householdId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/households/$(householdId)) &&
+        request.auth.uid in get(/databases/$(database)/documents/households/$(householdId)).data.members;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false; // Users cannot be deleted
+    }
+
+    // Households collection
+    match /households/{householdId} {
+      allow read: if isAuthenticated() && isHouseholdMember(householdId);
+      allow create: if isAuthenticated();
+      allow update: if isHouseholdMember(householdId);
+      allow delete: if false; // Households cannot be deleted
+    }
+
+    // Household invites collection
+    match /householdInvites/{inviteId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.invitedEmail == request.auth.token.email ||
+         resource.data.invitedBy == request.auth.uid);
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() &&
+        resource.data.invitedEmail == request.auth.token.email;
+      allow delete: if false;
+    }
+
+    // Expenses collection
+    match /expenses/{expenseId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid ||
+         (resource.data.householdId != null && isHouseholdMember(resource.data.householdId)));
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+    }
+
+    // Categories collection
+    match /categories/{categoryId} {
+      // Default categories (householdId == null) are readable by all authenticated users
+      // Household categories are readable by household members
+      allow read: if isAuthenticated() &&
+        (resource.data.householdId == null ||
+         isHouseholdMember(resource.data.householdId));
+      allow create: if isAuthenticated() &&
+        request.resource.data.householdId != null &&
+        isHouseholdMember(request.resource.data.householdId);
+      allow update: if isAuthenticated() &&
+        resource.data.isCustom == true &&
+        isHouseholdMember(resource.data.householdId);
+      allow delete: if isAuthenticated() &&
+        resource.data.isCustom == true &&
+        isHouseholdMember(resource.data.householdId);
+    }
+
+    // Tags collection
+    match /tags/{tagId} {
+      allow read: if isAuthenticated() &&
+        (resource.data.householdId == null ||
+         isHouseholdMember(resource.data.householdId));
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() &&
+        resource.data.isCustom == true;
+      allow delete: if isAuthenticated() &&
+        resource.data.isCustom == true;
+    }
+
+    // Payment methods collection
+    match /paymentMethods/{methodId} {
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+    }
+
+    // Monthly income collection
+    match /monthlyIncome/{incomeId} {
+      allow read: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() &&
+        resource.data.userId == request.auth.uid;
+    }
+  }
+}

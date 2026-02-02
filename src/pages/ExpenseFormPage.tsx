@@ -55,7 +55,7 @@ const expenseSchema = z.object({
   payee: z.string().optional(),
   notes: z.string().optional(),
   date: z.date(),
-  type: z.enum(['expense', 'transfer']),
+  type: z.enum(['expense', 'transfer', 'household_transfer']),
 })
 
 type ExpenseFormData = z.infer<typeof expenseSchema>
@@ -547,8 +547,31 @@ export function ExpenseFormPage() {
           />
         </div>
 
-        {/* Transaction Type (hidden, auto-set based on category) */}
-        <input type="hidden" {...register('type')} />
+        {/* Transaction Type */}
+        {user?.householdId && (
+          <div className="space-y-2">
+            <Label>Transaction Type</Label>
+            <Select
+              value={watch('type')}
+              onValueChange={(value) => setValue('type', value as 'expense' | 'transfer' | 'household_transfer')}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="expense">Regular Expense</SelectItem>
+                <SelectItem value="household_transfer">Give to Family Member</SelectItem>
+                <SelectItem value="transfer">Transfer (e.g., Credit Card Payment)</SelectItem>
+              </SelectContent>
+            </Select>
+            {watch('type') === 'household_transfer' && (
+              <p className="text-xs text-muted-foreground">
+                This won't count as expense in household totals
+              </p>
+            )}
+          </div>
+        )}
+        {!user?.householdId && <input type="hidden" {...register('type')} />}
 
         {/* Submit Button */}
         <Button type="submit" className="w-full" size="lg" disabled={loading}>

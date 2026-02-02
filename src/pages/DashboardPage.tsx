@@ -121,9 +121,14 @@ export function DashboardPage() {
       : expenses
 
     // Separate expenses and transfers
-    const actualExpenses = filteredExpenses.filter((e) => e.type === 'expense')
+    // In "my" view: household_transfer counts as expense (you spent your budget)
+    // In "all" view: household_transfer is excluded (money stays in household)
+    const actualExpenses = filteredExpenses.filter((e) => {
+      if (e.type === 'expense') return true
+      if (e.type === 'household_transfer' && viewMode === 'my') return true
+      return false
+    })
     const transfers = filteredExpenses.filter((e) => e.type === 'transfer')
-
     const totalExpenses = actualExpenses.reduce((sum, e) => sum + e.amount, 0)
     const totalTransfers = transfers.reduce((sum, e) => sum + e.amount, 0)
 

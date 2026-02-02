@@ -125,7 +125,7 @@ export const useStore = create<AppState>((set) => ({
   resetFilters: () => set({ filters: defaultFilters }),
 
   // View mode
-  viewMode: 'all',
+  viewMode: 'my',
   setViewMode: (mode) => set({ viewMode: mode }),
 
   // Loading

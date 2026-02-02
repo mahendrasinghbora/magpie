@@ -85,7 +85,7 @@ export interface PaymentMethod {
 }
 
 // Expense types
-export type TransactionType = 'expense' | 'transfer'
+export type TransactionType = 'expense' | 'transfer' | 'household_transfer'
 
 export interface Expense {
   id: string

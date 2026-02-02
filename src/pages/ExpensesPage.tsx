@@ -242,6 +242,11 @@ export function ExpensesPage() {
                                 Transfer
                               </Badge>
                             )}
+                            {expense.type === 'household_transfer' && (
+                              <Badge variant="outline" className="text-xs shrink-0">
+                                To Family
+                              </Badge>
+                            )}
                           </div>
 
                           {/* Subtitle: Category • Notes */}

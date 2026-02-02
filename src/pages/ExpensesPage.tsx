@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { PullToRefresh } from '@/components/PullToRefresh'
 import { formatAmount, formatDate, formatMonth, formatTime } from '@/config/constants'
 import { getExpenses, getCategories } from '@/lib/firestore'
 import { getIconComponent } from '@/lib/icons'
@@ -47,32 +48,38 @@ export function ExpensesPage() {
     setCurrentMonth(newDate)
   }
 
-  // Load data
-  useEffect(() => {
-    async function loadData() {
-      if (!user) return
+  // Load data function
+  const loadData = useCallback(async (showLoader = true) => {
+    if (!user) return
 
-      setLoading(true)
-      try {
-        const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
-        const endDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0, 23, 59, 59)
+    if (showLoader) setLoading(true)
+    try {
+      const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
+      const endDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0, 23, 59, 59)
 
-        const expensesData = await getExpenses(user.id, user.householdId, startDate, endDate)
-        setExpenses(expensesData)
+      const expensesData = await getExpenses(user.id, user.householdId, startDate, endDate)
+      setExpenses(expensesData)
 
-        if (categories.length === 0) {
-          const categoriesData = await getCategories(user.householdId)
-          setCategories(categoriesData)
-        }
-      } catch (error) {
-        console.error('Error loading expenses:', error)
-      } finally {
-        setLoading(false)
+      if (categories.length === 0) {
+        const categoriesData = await getCategories(user.householdId)
+        setCategories(categoriesData)
       }
+    } catch (error) {
+      console.error('Error loading expenses:', error)
+    } finally {
+      setLoading(false)
     }
+  }, [user, currentMonth, categories.length, setExpenses, setCategories])
 
+  // Initial load and on month change
+  useEffect(() => {
     loadData()
-  }, [user, currentMonth])
+  }, [loadData])
+
+  // Pull to refresh handler
+  const handleRefresh = useCallback(async () => {
+    await loadData(false)
+  }, [loadData])
 
   // Filter expenses
   const filteredExpenses = expenses.filter((expense) => {
@@ -136,9 +143,10 @@ export function ExpensesPage() {
   }
 
   return (
-    <div className="flex flex-col">
-      {/* Header */}
-      <div className="sticky top-0 z-10 space-y-3 bg-background p-4">
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="flex flex-col">
+        {/* Header */}
+        <div className="sticky top-0 z-10 space-y-3 bg-background p-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">Expenses</h1>
           <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
@@ -293,7 +301,8 @@ export function ExpensesPage() {
             </CardContent>
           </Card>
         )}
+        </div>
       </div>
-    </div>
+    </PullToRefresh>
   )
 }

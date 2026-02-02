@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { PullToRefresh } from '@/components/PullToRefresh'
 import { formatAmount, formatMonth, getMonthKey } from '@/config/constants'
 import { getExpenses, getCategories, getMonthlyIncome, getHouseholdMembers } from '@/lib/firestore'
 import { CategoryPieChart } from '@/components/dashboard/CategoryPieChart'
@@ -49,46 +50,52 @@ export function DashboardPage() {
     setCurrentMonth(newDate)
   }
 
-  // Load data
-  useEffect(() => {
-    async function loadData() {
-      if (!user) return
+  // Load data function
+  const loadData = useCallback(async (showLoader = true) => {
+    if (!user) return
 
-      setLoading(true)
-      try {
-        // Get date range for current month
-        const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
-        const endDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0, 23, 59, 59)
+    if (showLoader) setLoading(true)
+    try {
+      // Get date range for current month
+      const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
+      const endDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0, 23, 59, 59)
 
-        // Load expenses
-        const expensesData = await getExpenses(user.id, user.householdId, startDate, endDate)
-        setExpenses(expensesData)
+      // Load expenses
+      const expensesData = await getExpenses(user.id, user.householdId, startDate, endDate)
+      setExpenses(expensesData)
 
-        // Load categories if not already loaded
-        if (categories.length === 0) {
-          const categoriesData = await getCategories(user.householdId)
-          setCategories(categoriesData)
-        }
-
-        // Load monthly income
-        const monthKey = getMonthKey(currentMonth)
-        const incomeData = await getMonthlyIncome(user.id, monthKey)
-        setMonthlyIncome(incomeData)
-
-        // Load household members if in household
-        if (user.householdId && householdMembers.length === 0) {
-          const members = await getHouseholdMembers(user.householdId)
-          setHouseholdMembers(members)
-        }
-      } catch (error) {
-        console.error('Error loading data:', error)
-      } finally {
-        setLoading(false)
+      // Load categories if not already loaded
+      if (categories.length === 0) {
+        const categoriesData = await getCategories(user.householdId)
+        setCategories(categoriesData)
       }
-    }
 
+      // Load monthly income
+      const monthKey = getMonthKey(currentMonth)
+      const incomeData = await getMonthlyIncome(user.id, monthKey)
+      setMonthlyIncome(incomeData)
+
+      // Load household members if in household
+      if (user.householdId && householdMembers.length === 0) {
+        const members = await getHouseholdMembers(user.householdId)
+        setHouseholdMembers(members)
+      }
+    } catch (error) {
+      console.error('Error loading data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [user, currentMonth, categories.length, householdMembers.length, setExpenses, setCategories, setMonthlyIncome, setHouseholdMembers])
+
+  // Initial load and on month change
+  useEffect(() => {
     loadData()
-  }, [user, currentMonth])
+  }, [loadData])
+
+  // Pull to refresh handler
+  const handleRefresh = useCallback(async () => {
+    await loadData(false)
+  }, [loadData])
 
   // Calculate stats
   useEffect(() => {
@@ -179,7 +186,8 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <PullToRefresh onRefresh={handleRefresh}>
+      <div className="space-y-4 p-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -347,6 +355,7 @@ export function DashboardPage() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </PullToRefresh>
   )
 }

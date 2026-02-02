@@ -11,6 +11,7 @@ import {
   orderBy,
   serverTimestamp,
   Timestamp,
+  arrayUnion,
   type DocumentData,
   type QueryConstraint,
 } from 'firebase/firestore'
@@ -367,18 +368,10 @@ export async function acceptInvite(
 
   const invite = inviteSnap.data() as HouseholdInvite
 
-  // Add user to household members
+  // Add user to household members using arrayUnion (no read required)
   const householdRef = doc(db, 'households', invite.householdId)
-  const householdSnap = await getDoc(householdRef)
-
-  if (!householdSnap.exists()) {
-    throw new Error('Household not found')
-  }
-
-  const household = householdSnap.data() as Household
-
   await updateDoc(householdRef, {
-    members: [...household.members, userId],
+    members: arrayUnion(userId),
   })
 
   // Update user's householdId

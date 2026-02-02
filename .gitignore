@@ -20,6 +20,9 @@ dist-ssr
 # Firebase service account
 scripts/service-account.json
 
+# Personal notes
+scratch.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

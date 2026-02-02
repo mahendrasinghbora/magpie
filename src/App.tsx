@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { InstallPrompt } from '@/components/InstallPrompt'
 
 // Eager load login page (entry point)
 import { LoginPage } from '@/pages/LoginPage'
@@ -65,6 +66,7 @@ function App() {
               </Route>
             </Routes>
           </Suspense>
+          <InstallPrompt />
           <Toaster />
         </AuthProvider>
       </ThemeProvider>

@@ -34,19 +34,12 @@ export function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-500">
-            <svg
-              viewBox="0 0 100 100"
-              className="h-10 w-10"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <ellipse cx="50" cy="52" rx="25" ry="20" fill="#18181b" />
-              <circle cx="65" cy="38" r="12" fill="#18181b" />
-              <circle cx="68" cy="36" r="3" fill="#fafafa" />
-              <polygon points="77,38 85,40 77,42" fill="#f97316" />
-              <polygon points="25,52 15,45 15,60" fill="#18181b" />
-            </svg>
+          <div className="mx-auto mb-4">
+            <img
+              src="/pwa-192x192.png"
+              alt="Magpie"
+              className="h-20 w-20 rounded-2xl"
+            />
           </div>
           <CardTitle className="text-2xl">Welcome to Magpie</CardTitle>
           <CardDescription>

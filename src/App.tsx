@@ -1,34 +1,48 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { AuthProvider } from '@/hooks/useAuth'
+import { Toaster } from '@/components/ui/sonner'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
+import { AppLayout } from '@/components/layout/AppLayout'
+import { LoginPage } from '@/pages/LoginPage'
+import { DashboardPage } from '@/pages/DashboardPage'
+import { ExpensesPage } from '@/pages/ExpensesPage'
+import { ExpenseFormPage } from '@/pages/ExpenseFormPage'
+import { SettingsPage } from '@/pages/SettingsPage'
+import { PaymentMethodsPage } from '@/pages/settings/PaymentMethodsPage'
+import { IncomePage } from '@/pages/settings/IncomePage'
+import { HouseholdPage } from '@/pages/settings/HouseholdPage'
+import { CategoriesPage } from '@/pages/settings/CategoriesPage'
+import { TagsPage } from '@/pages/settings/TagsPage'
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<LoginPage />} />
+
+          {/* Protected routes */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/expenses" element={<ExpensesPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Route>
+
+            {/* Full page routes (no bottom nav) */}
+            <Route path="/expense/new" element={<ExpenseFormPage />} />
+            <Route path="/expense/:id" element={<ExpenseFormPage />} />
+            <Route path="/settings/payment-methods" element={<PaymentMethodsPage />} />
+            <Route path="/settings/income" element={<IncomePage />} />
+            <Route path="/settings/household" element={<HouseholdPage />} />
+            <Route path="/settings/categories" element={<CategoriesPage />} />
+            <Route path="/settings/tags" element={<TagsPage />} />
+          </Route>
+        </Routes>
+        <Toaster />
+      </AuthProvider>
+    </BrowserRouter>
   )
 }
 

@@ -27,13 +27,14 @@ import type {
 
 // Helper to convert Firestore timestamps to Date
 function convertTimestamps<T extends DocumentData>(data: T): T {
-  const converted = { ...data }
+  const converted = { ...data } as Record<string, unknown>
   for (const key in converted) {
-    if (converted[key] instanceof Timestamp) {
-      converted[key] = converted[key].toDate()
+    const value = converted[key]
+    if (value && typeof value === 'object' && 'toDate' in value && typeof value.toDate === 'function') {
+      converted[key] = value.toDate()
     }
   }
-  return converted
+  return converted as T
 }
 
 // ============== Expenses ==============

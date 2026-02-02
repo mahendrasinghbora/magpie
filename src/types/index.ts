@@ -91,6 +91,7 @@ export interface Expense {
   id: string
   userId: string
   householdId: string | null
+  toUserId: string | null // Recipient for household_transfer type
   amount: number
   categoryId: string
   paymentMethodId: string | null
@@ -117,6 +118,7 @@ export interface MonthlyIncome {
   userId: string
   month: string // YYYY-MM format
   amount: number
+  fromHouseholdAmount: number // Income received from household members (excluded from household totals)
   createdAt: Date
   updatedAt: Date
 }

@@ -43,7 +43,9 @@ import {
   getCategories,
   getPaymentMethods,
   getTags,
+  addHouseholdIncomeToRecipient,
 } from '@/lib/firestore'
+import { getMonthKey } from '@/config/constants'
 import type { Expense } from '@/types'
 import { getIconComponent } from '@/lib/icons'
 import type { PaymentMethodType } from '@/types'
@@ -56,6 +58,7 @@ const expenseSchema = z.object({
   notes: z.string().optional(),
   date: z.date(),
   type: z.enum(['expense', 'transfer', 'household_transfer']),
+  toUserId: z.string().optional(),
 })
 
 type ExpenseFormData = z.infer<typeof expenseSchema>
@@ -74,6 +77,7 @@ export function ExpenseFormPage() {
     addExpense,
     updateExpense,
     removeExpense,
+    householdMembers,
   } = useStore()
 
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -263,6 +267,12 @@ export function ExpenseFormPage() {
   const onSubmit = async (data: ExpenseFormData) => {
     if (!user) return
 
+    // Validate household transfer has recipient
+    if (data.type === 'household_transfer' && !data.toUserId) {
+      toast.error('Please select a family member')
+      return
+    }
+
     setLoading(true)
     try {
       // Combine date and time
@@ -273,6 +283,7 @@ export function ExpenseFormPage() {
         date: dateWithTime,
         userId: user.id,
         householdId: user.householdId,
+        toUserId: data.type === 'household_transfer' ? (data.toUserId || null) : null,
         tags: selectedTags,
         payee: data.payee || '',
         notes: data.notes || '',
@@ -291,6 +302,13 @@ export function ExpenseFormPage() {
           createdAt: new Date(),
           updatedAt: new Date(),
         })
+
+        // If household transfer, add income to recipient
+        if (data.type === 'household_transfer' && data.toUserId) {
+          const monthKey = getMonthKey(dateWithTime)
+          await addHouseholdIncomeToRecipient(data.toUserId, monthKey, data.amount)
+        }
+
         toast.success('Expense added')
       }
 
@@ -564,11 +582,33 @@ export function ExpenseFormPage() {
                 <SelectItem value="transfer">Transfer (e.g., Credit Card Payment)</SelectItem>
               </SelectContent>
             </Select>
-            {watch('type') === 'household_transfer' && (
-              <p className="text-xs text-muted-foreground">
-                This won't count as expense in household totals
-              </p>
-            )}
+          </div>
+        )}
+
+        {/* Recipient selector for household transfer */}
+        {watch('type') === 'household_transfer' && (
+          <div className="space-y-2">
+            <Label>Give to</Label>
+            <Select
+              value={watch('toUserId') || ''}
+              onValueChange={(value) => setValue('toUserId', value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select family member" />
+              </SelectTrigger>
+              <SelectContent>
+                {householdMembers
+                  .filter((m) => m.id !== user?.id)
+                  .map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.displayName}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              This will automatically add to their income
+            </p>
           </div>
         )}
         {!user?.householdId && <input type="hidden" {...register('type')} />}

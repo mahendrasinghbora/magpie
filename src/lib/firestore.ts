@@ -274,7 +274,12 @@ export async function getHouseholdMonthlyIncome(
     userIds.map((userId) => getMonthlyIncome(userId, month))
   )
 
-  return incomes.reduce((sum, income) => sum + (income?.amount || 0), 0)
+  // Sum external income only (total - fromHouseholdAmount)
+  return incomes.reduce((sum, income) => {
+    if (!income) return sum
+    const externalIncome = income.amount - (income.fromHouseholdAmount || 0)
+    return sum + externalIncome
+  }, 0)
 }
 
 export async function setMonthlyIncome(
@@ -297,10 +302,41 @@ export async function setMonthlyIncome(
     userId,
     month,
     amount,
+    fromHouseholdAmount: 0,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
   return docRef.id
+}
+
+// Add income from household member (for household transfers)
+export async function addHouseholdIncomeToRecipient(
+  recipientUserId: string,
+  month: string,
+  amount: number
+): Promise<void> {
+  const existing = await getMonthlyIncome(recipientUserId, month)
+
+  if (existing) {
+    // Add to existing fromHouseholdAmount
+    const newFromHouseholdAmount = (existing.fromHouseholdAmount || 0) + amount
+    const newTotalAmount = existing.amount + amount
+    await updateDoc(doc(db, 'monthlyIncome', existing.id), {
+      amount: newTotalAmount,
+      fromHouseholdAmount: newFromHouseholdAmount,
+      updatedAt: serverTimestamp(),
+    })
+  } else {
+    // Create new income record with only household income
+    await addDoc(collection(db, 'monthlyIncome'), {
+      userId: recipientUserId,
+      month,
+      amount: amount,
+      fromHouseholdAmount: amount,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+  }
 }
 
 // ============== Household ==============

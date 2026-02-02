@@ -435,7 +435,7 @@ export function ExpenseFormPage() {
                 type="time"
                 value={timeInput}
                 onChange={(e) => setTimeInput(e.target.value)}
-                className="w-[130px] pl-10"
+                className="w-[150px] pl-10"
               />
             </div>
           </div>

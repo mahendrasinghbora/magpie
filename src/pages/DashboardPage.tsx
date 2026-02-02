@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { formatAmount, formatMonth, getMonthKey } from '@/config/constants'
-import { getExpenses, getCategories, getMonthlyIncome, getHousehold, getHouseholdMembers } from '@/lib/firestore'
+import { getExpenses, getCategories, getMonthlyIncome, getHouseholdMonthlyIncome, getHousehold, getHouseholdMembers } from '@/lib/firestore'
 import { CategoryPieChart } from '@/components/dashboard/CategoryPieChart'
 import { StatCard } from '@/components/dashboard/StatCard'
 import { UserComparison } from '@/components/dashboard/UserComparison'
@@ -38,6 +38,7 @@ export function DashboardPage() {
 
   const [stats, setStats] = useState<MonthlyStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [householdTotalIncome, setHouseholdTotalIncome] = useState(0)
 
   // Navigate months
   const goToPreviousMonth = () => {
@@ -79,14 +80,19 @@ export function DashboardPage() {
 
       // Load household and members if in household
       if (user.householdId) {
+        let members = householdMembers
         if (!household) {
           const householdData = await getHousehold(user.householdId)
           setHousehold(householdData)
         }
         if (householdMembers.length === 0) {
-          const members = await getHouseholdMembers(user.householdId)
+          members = await getHouseholdMembers(user.householdId)
           setHouseholdMembers(members)
         }
+        // Load total household income
+        const memberIds = members.map((m) => m.id)
+        const totalIncome = await getHouseholdMonthlyIncome(memberIds, monthKey)
+        setHouseholdTotalIncome(totalIncome)
       }
     } catch (error) {
       console.error('Error loading data:', error)
@@ -126,9 +132,8 @@ export function DashboardPage() {
     if (viewMode === 'my') {
       totalIncome = monthlyIncome?.amount || 0
     } else {
-      // For household view, we'd need to sum all members' income
-      // For now, just use current user's income
-      totalIncome = monthlyIncome?.amount || 0
+      // For household view, sum all members' income
+      totalIncome = householdTotalIncome
     }
 
     const saved = totalIncome - totalExpenses
@@ -183,7 +188,7 @@ export function DashboardPage() {
       byCategory,
       byUser,
     })
-  }, [expenses, categories, viewMode, monthlyIncome, householdMembers, user])
+  }, [expenses, categories, viewMode, monthlyIncome, householdTotalIncome, householdMembers, user])
 
   if (loading) {
     return <DashboardSkeleton />

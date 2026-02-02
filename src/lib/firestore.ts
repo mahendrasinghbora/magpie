@@ -264,6 +264,19 @@ export async function getMonthlyIncome(
   } as MonthlyIncome
 }
 
+export async function getHouseholdMonthlyIncome(
+  userIds: string[],
+  month: string
+): Promise<number> {
+  if (userIds.length === 0) return 0
+
+  const incomes = await Promise.all(
+    userIds.map((userId) => getMonthlyIncome(userId, month))
+  )
+
+  return incomes.reduce((sum, income) => sum + (income?.amount || 0), 0)
+}
+
 export async function setMonthlyIncome(
   userId: string,
   month: string,

@@ -24,6 +24,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   updateUser: (updates: Partial<Pick<User, 'displayName' | 'photoURL' | 'avatarStyle'>>) => Promise<void>
+  setUserHouseholdId: (householdId: string | null) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -134,6 +135,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const setUserHouseholdId = (householdId: string | null) => {
+    setUser((prev) => prev ? { ...prev, householdId } : null)
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -143,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signInWithGoogle,
         signOut,
         updateUser,
+        setUserHouseholdId,
       }}
     >
       {children}

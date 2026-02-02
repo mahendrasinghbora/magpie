@@ -31,7 +31,7 @@ import type { HouseholdInvite } from '@/types'
 
 export function HouseholdPage() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, setUserHouseholdId } = useAuth()
   const { household, setHousehold, householdMembers, setHouseholdMembers } = useStore()
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -74,6 +74,7 @@ export function HouseholdPage() {
     setLoading(true)
     try {
       const id = await createHousehold(householdName.trim(), user.id)
+      setUserHouseholdId(id)
       setHousehold({
         id,
         name: householdName.trim(),
@@ -126,6 +127,9 @@ export function HouseholdPage() {
       await acceptInvite(invite.id, user.id)
       setPendingInvites((prev) => prev.filter((i) => i.id !== invite.id))
 
+      // Update local user state with new householdId
+      setUserHouseholdId(invite.householdId)
+
       // Reload household data
       const householdData = await getHousehold(invite.householdId)
       setHousehold(householdData)
@@ -157,6 +161,7 @@ export function HouseholdPage() {
     setLoading(true)
     try {
       await leaveHousehold(user.id, household.id)
+      setUserHouseholdId(null)
       setHousehold(null)
       setHouseholdMembers([])
       setLeaveDialogOpen(false)

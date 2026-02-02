@@ -107,18 +107,25 @@ service cloud.firestore {
 
     // Monthly income collection
     match /monthlyIncome/{incomeId} {
-      // Allow read if:
-      // 1. User owns the income, OR
-      // 2. Both users are in the same household (for household totals)
+      // Helper to check if requester and target user share a household
+      function shareHousehold(targetUserId) {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.householdId != null &&
+          get(/databases/$(database)/documents/users/$(targetUserId)).data.householdId ==
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.householdId;
+      }
+
+      // Allow read if user owns it OR shares household with owner
       allow read: if isAuthenticated() &&
-        (resource.data.userId == request.auth.uid ||
-         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.householdId != null &&
-          get(/databases/$(database)/documents/users/$(resource.data.userId)).data.householdId ==
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.householdId));
+        (resource.data.userId == request.auth.uid || shareHousehold(resource.data.userId));
+
+      // Allow create if user owns it OR shares household (for household transfers)
       allow create: if isAuthenticated() &&
-        request.resource.data.userId == request.auth.uid;
+        (request.resource.data.userId == request.auth.uid || shareHousehold(request.resource.data.userId));
+
+      // Allow update if user owns it OR shares household (for household transfers)
       allow update: if isAuthenticated() &&
-        resource.data.userId == request.auth.uid;
+        (resource.data.userId == request.auth.uid || shareHousehold(resource.data.userId));
+
       allow delete: if isAuthenticated() &&
         resource.data.userId == request.auth.uid;
     }

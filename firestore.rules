@@ -32,7 +32,10 @@ service cloud.firestore {
     match /households/{householdId} {
       allow read: if isAuthenticated() && isHouseholdMember(householdId);
       allow create: if isAuthenticated();
-      allow update: if isHouseholdMember(householdId);
+      // Allow update if user is a member OR if user is being added to members (accepting invite)
+      allow update: if isAuthenticated() &&
+        (isHouseholdMember(householdId) ||
+         request.auth.uid in request.resource.data.members);
       allow delete: if false; // Households cannot be deleted
     }
 

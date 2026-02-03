@@ -210,10 +210,10 @@ export function ExpenseFormPage() {
   }, [selectedCategoryId, categories, setValue])
 
   const handleAmountChange = (value: string) => {
-    // Only allow numbers
-    const numericValue = value.replace(/[^0-9]/g, '')
+    // Allow numbers and one decimal point
+    const numericValue = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1')
     setAmountInput(numericValue)
-    setValue('amount', parseInt(numericValue) || 0)
+    setValue('amount', parseFloat(numericValue) || 0)
   }
 
   const toggleTag = (tagName: string) => {
@@ -381,7 +381,7 @@ export function ExpenseFormPage() {
             </span>
             <Input
               type="text"
-              inputMode="numeric"
+              inputMode="decimal"
               placeholder="0"
               value={amountInput}
               onChange={(e) => handleAmountChange(e.target.value)}

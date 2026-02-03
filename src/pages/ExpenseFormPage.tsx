@@ -579,7 +579,7 @@ export function ExpenseFormPage() {
               <SelectContent>
                 <SelectItem value="expense">Regular Expense</SelectItem>
                 <SelectItem value="household_transfer">Give to Family Member</SelectItem>
-                <SelectItem value="transfer">Transfer (e.g., Credit Card Payment)</SelectItem>
+                <SelectItem value="transfer">Transfer (e.g., Move to Savings)</SelectItem>
               </SelectContent>
             </Select>
           </div>

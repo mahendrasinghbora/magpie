@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { SwipeableExpenseCard } from '@/components/expense/SwipeableExpenseCard'
 import { formatAmount, formatDate, formatMonth, formatTime } from '@/config/constants'
@@ -31,6 +32,8 @@ export function ExpensesPage() {
     setCategories,
     filters,
     viewMode,
+    setViewMode,
+    household,
     householdMembers,
     removeExpense,
   } = useStore()
@@ -181,6 +184,16 @@ export function ExpensesPage() {
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
+
+        {/* View Mode Toggle (only show if in household) */}
+        {household && (
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'my' | 'all')}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="my">My Expenses</TabsTrigger>
+              <TabsTrigger value="all">All Expenses</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
 
         {/* Search */}
         <div className="relative">

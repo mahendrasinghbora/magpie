@@ -1,8 +1,9 @@
+import type { ReactNode } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 
 interface StatCardProps {
   title: string
-  value: string
+  value: ReactNode
   subtitle: string
 }
 

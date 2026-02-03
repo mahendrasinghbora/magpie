@@ -297,14 +297,12 @@ export function DashboardPage() {
         <div className="grid grid-cols-2 gap-3">
           <StatCard
             title="Transactions"
-            value={expenses.filter((e) => e.type === 'expense').length.toString()}
+            value={<AnimatedAmount value={expenses.filter((e) => e.type === 'expense').length} format="number" />}
             subtitle="this month"
           />
           <StatCard
             title="Avg/Day"
-            value={formatAmount(
-              stats.totalExpenses / new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate()
-            )}
+            value={<AnimatedAmount value={stats.totalExpenses / new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate()} />}
             subtitle="spending"
           />
         </div>

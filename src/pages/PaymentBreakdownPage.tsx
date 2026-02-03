@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SwipeableContainer } from '@/components/SwipeableContainer'
+import { AnimatedAmount } from '@/components/AnimatedAmount'
 import { formatAmount, formatMonth, PAYMENT_METHOD_TYPES } from '@/config/constants'
 import { getExpenses, getPaymentMethods, getHouseholdPaymentMethods, getHouseholdMembers } from '@/lib/firestore'
 import type { PaymentMethodType } from '@/types'
@@ -246,7 +247,7 @@ export function PaymentBreakdownPage() {
           <CardContent className="py-4">
             <div className="text-center">
               <p className="text-sm text-muted-foreground">Total Tracked Spending</p>
-              <p className="text-2xl font-bold">{formatAmount(totalSpent)}</p>
+              <AnimatedAmount value={totalSpent} className="text-2xl font-bold" />
             </div>
           </CardContent>
         </Card>

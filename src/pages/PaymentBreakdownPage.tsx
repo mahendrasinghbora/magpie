@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, ChevronLeft, ChevronRight, CreditCard, Banknote, Smartphone, Building2 } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, CreditCard, Banknote, Smartphone, Building2, Wallet } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
@@ -327,9 +327,12 @@ export function PaymentBreakdownPage() {
         {/* Empty State */}
         {typeStats.length === 0 && !loading && (
           <Card>
-            <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">No payment data this month</p>
-              <p className="text-sm text-muted-foreground">
+            <CardContent className="py-12 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                <Wallet className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <p className="font-medium text-foreground">No payment data this month</p>
+              <p className="mt-1 text-sm text-muted-foreground">
                 Add payment methods and track expenses to see breakdown
               </p>
             </CardContent>

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { Search, Filter, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
+import { Search, Filter, ChevronLeft, ChevronRight, CalendarDays, Receipt, SearchX } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
@@ -397,13 +397,22 @@ export function ExpensesPage() {
         {/* Empty State */}
         {filteredExpenses.length === 0 && (
           <Card>
-            <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">No expenses found</p>
-              {searchQuery && (
-                <p className="text-sm text-muted-foreground">
-                  Try adjusting your search or filters
-                </p>
-              )}
+            <CardContent className="py-12 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+                {searchQuery || hasActiveFilters ? (
+                  <SearchX className="h-8 w-8 text-muted-foreground" />
+                ) : (
+                  <Receipt className="h-8 w-8 text-muted-foreground" />
+                )}
+              </div>
+              <p className="font-medium text-foreground">
+                {searchQuery || hasActiveFilters ? 'No expenses found' : 'No expenses this month'}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {searchQuery || hasActiveFilters
+                  ? 'Try adjusting your search or filters'
+                  : 'Tap the + button to add your first expense'}
+              </p>
             </CardContent>
           </Card>
         )}

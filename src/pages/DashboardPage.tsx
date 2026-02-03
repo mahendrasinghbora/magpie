@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Receipt } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
@@ -379,9 +379,12 @@ export function DashboardPage() {
       {/* Empty State */}
       {(!stats || stats.byCategory.length === 0) && !loading && (
         <Card>
-          <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground">No expenses this month</p>
-            <p className="text-sm text-muted-foreground">
+          <CardContent className="py-12 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+              <Receipt className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <p className="font-medium text-foreground">No expenses this month</p>
+            <p className="mt-1 text-sm text-muted-foreground">
               Tap the + button to add your first expense
             </p>
           </CardContent>

@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatAmount, formatMonth, PAYMENT_METHOD_TYPES } from '@/config/constants'
-import { getExpenses, getPaymentMethods } from '@/lib/firestore'
+import { getExpenses, getPaymentMethods, getHouseholdPaymentMethods, getHouseholdMembers } from '@/lib/firestore'
 import type { PaymentMethodType } from '@/types'
 
 interface PaymentTypeStats {
@@ -50,6 +50,8 @@ export function PaymentBreakdownPage() {
     viewMode,
     setViewMode,
     household,
+    householdMembers,
+    setHouseholdMembers,
   } = useStore()
 
   const [loading, setLoading] = useState(true)
@@ -87,10 +89,22 @@ export function PaymentBreakdownPage() {
           setExpenses(expensesData)
         }
 
-        // Load payment methods if not already loaded
+        // Load payment methods
+        // For households, load all members' payment methods
         if (paymentMethods.length === 0) {
-          const paymentMethodsData = await getPaymentMethods(user.id)
-          setPaymentMethods(paymentMethodsData)
+          if (user.householdId) {
+            let members = householdMembers
+            if (members.length === 0) {
+              members = await getHouseholdMembers(user.householdId)
+              setHouseholdMembers(members)
+            }
+            const memberIds = members.map((m) => m.id)
+            const allPaymentMethods = await getHouseholdPaymentMethods(memberIds)
+            setPaymentMethods(allPaymentMethods)
+          } else {
+            const paymentMethodsData = await getPaymentMethods(user.id)
+            setPaymentMethods(paymentMethodsData)
+          }
         }
       } catch (error) {
         console.error('Error loading data:', error)
@@ -100,7 +114,7 @@ export function PaymentBreakdownPage() {
     }
 
     loadData()
-  }, [user, currentMonth])
+  }, [user, currentMonth, householdMembers.length])
 
   // Calculate stats
   useEffect(() => {
@@ -112,9 +126,13 @@ export function PaymentBreakdownPage() {
       : expenses
 
     // Only consider actual expenses (not transfers) with payment methods
-    const expensesWithPayment = filteredExpenses.filter(
-      (e) => e.type === 'expense'
-    )
+    // In "my" view: household_transfer counts as expense (you spent your budget)
+    // In "all" view: household_transfer is excluded (money stays in household)
+    const expensesWithPayment = filteredExpenses.filter((e) => {
+      if (e.type === 'expense') return true
+      if (e.type === 'household_transfer' && viewMode === 'my') return true
+      return false
+    })
 
     const total = expensesWithPayment.reduce((sum, e) => sum + e.amount, 0)
     setTotalSpent(total)

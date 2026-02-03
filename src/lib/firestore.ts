@@ -200,6 +200,16 @@ export async function deletePaymentMethod(id: string): Promise<void> {
   await deleteDoc(doc(db, 'paymentMethods', id))
 }
 
+export async function getHouseholdPaymentMethods(userIds: string[]): Promise<PaymentMethod[]> {
+  if (userIds.length === 0) return []
+
+  const allMethods = await Promise.all(
+    userIds.map((userId) => getPaymentMethods(userId))
+  )
+
+  return allMethods.flat()
+}
+
 // ============== Tags ==============
 
 export async function getTags(householdId: string | null): Promise<Tag[]> {

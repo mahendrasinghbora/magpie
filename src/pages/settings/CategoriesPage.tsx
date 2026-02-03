@@ -196,7 +196,7 @@ export function CategoriesPage() {
 
       {/* Categories Grid */}
       <div className="grid grid-cols-2 gap-2 p-4">
-        {categories.map((category) => {
+        {[...categories].sort((a, b) => a.name.localeCompare(b.name)).map((category) => {
           const Icon = getIconComponent(category.icon)
           return (
             <Card

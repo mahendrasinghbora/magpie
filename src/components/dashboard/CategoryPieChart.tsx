@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts'
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import type { CategoryStats } from '@/types'
 import { formatAmount } from '@/config/constants'
 
@@ -33,14 +33,14 @@ export function CategoryPieChart({ data }: CategoryPieChartProps) {
 
   return (
     <div className="relative">
-      <ResponsiveContainer width="100%" height={250}>
+      <ResponsiveContainer width="100%" height={200}>
         <PieChart>
           <Pie
             data={chartData}
             cx="50%"
             cy="50%"
-            innerRadius={50}
-            outerRadius={80}
+            innerRadius={60}
+            outerRadius={90}
             paddingAngle={2}
             dataKey="value"
             onMouseEnter={(_, index) => setActiveData(chartData[index])}
@@ -55,19 +55,11 @@ export function CategoryPieChart({ data }: CategoryPieChartProps) {
               />
             ))}
           </Pie>
-          <Legend
-            layout="horizontal"
-            verticalAlign="bottom"
-            align="center"
-            formatter={(value) => (
-              <span className="text-xs text-foreground">{value}</span>
-            )}
-          />
         </PieChart>
       </ResponsiveContainer>
 
       {/* Center text showing active/total */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ top: '-20px' }}>
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="text-center">
           {activeData ? (
             <>

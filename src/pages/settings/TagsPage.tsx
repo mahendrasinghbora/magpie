@@ -137,7 +137,7 @@ export function TagsPage() {
 
       <div className="p-4">
         <div className="flex flex-wrap gap-2">
-          {tags.map((tag) => (
+          {[...tags].sort((a, b) => a.name.localeCompare(b.name)).map((tag) => (
             <Badge
               key={tag.id}
               variant="secondary"

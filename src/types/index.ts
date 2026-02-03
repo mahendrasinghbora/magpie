@@ -58,6 +58,7 @@ export type CategoryIcon =
   | 'CreditCard'
   | 'MoreHorizontal'
   | 'Wallet'
+  | 'PiggyBank'
 
 export interface Category {
   id: string

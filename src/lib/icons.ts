@@ -25,6 +25,7 @@ import {
   CreditCard,
   MoreHorizontal,
   Wallet,
+  PiggyBank,
   type LucideIcon,
 } from 'lucide-react'
 import type { CategoryIcon } from '@/types'
@@ -57,6 +58,7 @@ export const iconMap: Record<CategoryIcon, LucideIcon> = {
   CreditCard,
   MoreHorizontal,
   Wallet,
+  PiggyBank,
 }
 
 // Get icon component by name

@@ -26,8 +26,18 @@ import {
   rejectInvite,
   leaveHousehold,
   getHouseholdMembers,
+  getMonthlyIncome,
+  getExpenses,
 } from '@/lib/firestore'
+import { formatAmount, getMonthKey } from '@/config/constants'
 import type { HouseholdInvite } from '@/types'
+
+interface MemberStats {
+  id: string
+  income: number
+  spent: number
+  remaining: number
+}
 
 export function HouseholdPage() {
   const navigate = useNavigate()
@@ -41,6 +51,8 @@ export function HouseholdPage() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [pendingInvites, setPendingInvites] = useState<HouseholdInvite[]>([])
   const [loading, setLoading] = useState(false)
+  const [memberStats, setMemberStats] = useState<MemberStats[]>([])
+  const [householdTotals, setHouseholdTotals] = useState({ income: 0, spent: 0, remaining: 0 })
 
   // Load household data
   useEffect(() => {
@@ -59,6 +71,46 @@ export function HouseholdPage() {
 
           const members = await getHouseholdMembers(user.householdId)
           setHouseholdMembers(members)
+
+          // Load member stats for current month
+          const now = new Date()
+          const monthKey = getMonthKey(now)
+          const startDate = new Date(now.getFullYear(), now.getMonth(), 1)
+          const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+
+          const statsPromises = members.map(async (member) => {
+            const [income, expenses] = await Promise.all([
+              getMonthlyIncome(member.id, monthKey),
+              getExpenses(member.id, user.householdId, startDate, endDate),
+            ])
+
+            const memberExpenses = expenses.filter((e) => e.userId === member.id)
+            const spent = memberExpenses
+              .filter((e) => e.type === 'expense' || e.type === 'household_transfer')
+              .reduce((sum, e) => sum + e.amount, 0)
+
+            const incomeAmount = income?.amount || 0
+            return {
+              id: member.id,
+              income: incomeAmount,
+              spent,
+              remaining: incomeAmount - spent,
+            }
+          })
+
+          const stats = await Promise.all(statsPromises)
+          setMemberStats(stats)
+
+          // Calculate household totals
+          const totals = stats.reduce(
+            (acc, s) => ({
+              income: acc.income + s.income,
+              spent: acc.spent + s.spent,
+              remaining: acc.remaining + s.remaining,
+            }),
+            { income: 0, spent: 0, remaining: 0 }
+          )
+          setHouseholdTotals(totals)
         }
       } catch (error) {
         console.error('Error loading household data:', error)
@@ -228,36 +280,81 @@ export function HouseholdPage() {
         {/* Current Household */}
         {household ? (
           <>
+            {/* Household Summary */}
             <Card>
-              <CardHeader>
-                <CardTitle className="text-base">{household.name}</CardTitle>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">{household.name} - This Month</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Income</span>
+                  <span className="font-medium">{formatAmount(householdTotals.income)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Spent</span>
+                  <span className="font-medium text-destructive">{formatAmount(householdTotals.spent)}</span>
+                </div>
+                <div className="h-px bg-border" />
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Remaining</span>
+                  <span className={`font-semibold ${householdTotals.remaining >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                    {formatAmount(householdTotals.remaining)}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Members */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Members</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <p className="mb-2 text-sm text-muted-foreground">Members</p>
-                  <div className="space-y-2">
-                    {householdMembers.map((member) => (
+                <div className="space-y-3">
+                  {householdMembers.map((member) => {
+                    const stats = memberStats.find((s) => s.id === member.id)
+                    return (
                       <div
                         key={member.id}
-                        className="flex items-center gap-3 rounded-lg border p-3"
+                        className="rounded-lg border p-3"
                       >
-                        <Avatar>
-                          <AvatarImage src={member.photoURL} />
-                          <AvatarFallback>
-                            {member.displayName.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">{member.displayName}</p>
-                          {member.id === household.createdBy && (
-                            <p className="text-xs text-muted-foreground">
-                              Creator
-                            </p>
-                          )}
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            <AvatarImage src={member.photoURL} />
+                            <AvatarFallback>
+                              {member.displayName.charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <p className="font-medium">{member.displayName}</p>
+                            {member.id === household.createdBy && (
+                              <p className="text-xs text-muted-foreground">
+                                Creator
+                              </p>
+                            )}
+                          </div>
                         </div>
+                        {stats && (
+                          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+                            <div className="rounded bg-muted/50 p-2">
+                              <p className="text-muted-foreground">Income</p>
+                              <p className="font-medium">{formatAmount(stats.income)}</p>
+                            </div>
+                            <div className="rounded bg-muted/50 p-2">
+                              <p className="text-muted-foreground">Spent</p>
+                              <p className="font-medium text-destructive">{formatAmount(stats.spent)}</p>
+                            </div>
+                            <div className="rounded bg-muted/50 p-2">
+                              <p className="text-muted-foreground">Left</p>
+                              <p className={`font-medium ${stats.remaining >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                                {formatAmount(stats.remaining)}
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
+                    )
+                  })}
                 </div>
 
                 {/* Invite Button */}

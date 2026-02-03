@@ -1,4 +1,3 @@
-import { auth } from '@/config/firebase'
 import {
   getExpenses,
   getCategories,
@@ -20,25 +19,6 @@ interface BackupData {
   paymentMethods: unknown[]
   tags: unknown[]
   monthlyIncome: unknown | null
-}
-
-// Get the access token from Firebase user
-async function getAccessToken(): Promise<string | null> {
-  const user = auth.currentUser
-  if (!user) return null
-
-  try {
-    const token = await user.getIdToken()
-    // For Google Drive API, we need the OAuth access token, not the Firebase ID token
-    // We need to get it from the credential
-    const credential = await user.getIdTokenResult()
-    // The access token should be available if the user signed in with Google
-    // and we requested the Drive scope
-    return (credential as unknown as { token: string }).token || null
-  } catch (error) {
-    console.error('Error getting access token:', error)
-    return null
-  }
 }
 
 // Get OAuth access token using Google Auth provider

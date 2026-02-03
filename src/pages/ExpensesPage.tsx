@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
@@ -18,12 +17,12 @@ import { formatAmount, formatDate, formatMonth, formatTime } from '@/config/cons
 import { getExpenses, getCategories, deleteExpense } from '@/lib/firestore'
 import { getIconComponent } from '@/lib/icons'
 import { ExpenseFilters } from '@/components/expense/ExpenseFilters'
+import { ExpenseDetailSheet } from '@/components/expense/ExpenseDetailSheet'
 import { ExpensesSkeleton } from '@/components/skeletons/ExpensesSkeleton'
 import type { Expense } from '@/types'
 
 export function ExpensesPage() {
   const { user } = useAuth()
-  const navigate = useNavigate()
   const {
     currentMonth,
     setCurrentMonth,
@@ -36,12 +35,15 @@ export function ExpensesPage() {
     setViewMode,
     household,
     householdMembers,
+    paymentMethods,
     removeExpense,
   } = useStore()
 
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false)
 
   // Navigate months
   const goToPreviousMonth = () => {
@@ -235,7 +237,10 @@ export function ExpensesPage() {
                   <SwipeableExpenseCard
                     key={expense.id}
                     onDelete={() => handleDeleteExpense(expense.id)}
-                    onClick={() => navigate(`/expense/${expense.id}`)}
+                    onClick={() => {
+                      setSelectedExpense(expense)
+                      setDetailSheetOpen(true)
+                    }}
                   >
                     <Card className="cursor-pointer transition-colors hover:bg-muted/50">
                       <CardContent className="flex gap-3 p-3">
@@ -329,6 +334,16 @@ export function ExpensesPage() {
           </div>
         </div>
       </PullToRefresh>
+
+      {/* Expense Detail Sheet */}
+      <ExpenseDetailSheet
+        expense={selectedExpense}
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
+        category={selectedExpense ? categories.find((c) => c.id === selectedExpense.categoryId) : undefined}
+        paymentMethod={selectedExpense?.paymentMethodId ? paymentMethods.find((p) => p.id === selectedExpense.paymentMethodId) : undefined}
+        memberInfo={selectedExpense ? householdMembers.find((m) => m.id === selectedExpense.userId) : undefined}
+      />
     </SwipeableContainer>
   )
 }

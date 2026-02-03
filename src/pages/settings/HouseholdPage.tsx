@@ -28,6 +28,7 @@ import {
   getHouseholdMembers,
   getMonthlyIncome,
   getExpenses,
+  getHouseholdPaymentMethods,
 } from '@/lib/firestore'
 import { formatAmount, getMonthKey } from '@/config/constants'
 import type { HouseholdInvite } from '@/types'
@@ -78,6 +79,10 @@ export function HouseholdPage() {
           const startDate = new Date(now.getFullYear(), now.getMonth(), 1)
           const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
+          // Load payment methods for all household members
+          const memberIds = members.map((m) => m.id)
+          const paymentMethods = await getHouseholdPaymentMethods(memberIds)
+
           const statsPromises = members.map(async (member) => {
             const [income, expenses] = await Promise.all([
               getMonthlyIncome(member.id, monthKey),
@@ -85,16 +90,27 @@ export function HouseholdPage() {
             ])
 
             const memberExpenses = expenses.filter((e) => e.userId === member.id)
-            const spent = memberExpenses
-              .filter((e) => e.type === 'expense' || e.type === 'household_transfer')
-              .reduce((sum, e) => sum + e.amount, 0)
+
+            // Calculate cash outflow (actual money leaving the account)
+            // Credit card expenses don't reduce savings until bill is paid
+            const actualExpenses = memberExpenses.filter(
+              (e) => e.type === 'expense' || e.type === 'household_transfer'
+            )
+            const transfers = memberExpenses.filter((e) => e.type === 'transfer')
+
+            const cashOutflow = actualExpenses.reduce((sum, e) => {
+              const pm = paymentMethods.find((p) => p.id === e.paymentMethodId)
+              // If paid with credit card, don't count towards cash outflow
+              if (pm?.type === 'credit_card') return sum
+              return sum + e.amount
+            }, 0) + transfers.reduce((sum, e) => sum + e.amount, 0)
 
             const incomeAmount = income?.amount || 0
             return {
               id: member.id,
               income: incomeAmount,
-              spent,
-              remaining: incomeAmount - spent,
+              spent: cashOutflow,
+              remaining: incomeAmount - cashOutflow,
             }
           })
 

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { SwipeableContainer } from '@/components/SwipeableContainer'
 import { formatAmount, formatMonth, PAYMENT_METHOD_TYPES } from '@/config/constants'
 import { getExpenses, getPaymentMethods, getHouseholdPaymentMethods, getHouseholdMembers } from '@/lib/firestore'
 import type { PaymentMethodType } from '@/types'
@@ -208,8 +209,9 @@ export function PaymentBreakdownPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
+    <SwipeableContainer onSwipeLeft={goToNextMonth} onSwipeRight={goToPreviousMonth}>
+      <div className="min-h-screen bg-background">
+        {/* Header */}
       <div className="sticky top-0 z-10 flex items-center gap-4 bg-background p-4">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
@@ -332,7 +334,8 @@ export function PaymentBreakdownPage() {
             </CardContent>
           </Card>
         )}
+        </div>
       </div>
-    </div>
+    </SwipeableContainer>
   )
 }

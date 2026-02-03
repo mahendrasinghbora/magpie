@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PullToRefresh } from '@/components/PullToRefresh'
+import { SwipeableContainer } from '@/components/SwipeableContainer'
 import { SwipeableExpenseCard } from '@/components/expense/SwipeableExpenseCard'
 import { formatAmount, formatDate, formatMonth, formatTime } from '@/config/constants'
 import { getExpenses, getCategories, deleteExpense } from '@/lib/firestore'
@@ -153,8 +154,9 @@ export function ExpensesPage() {
   }
 
   return (
-    <PullToRefresh onRefresh={handleRefresh}>
-      <div className="flex flex-col">
+    <SwipeableContainer onSwipeLeft={goToNextMonth} onSwipeRight={goToPreviousMonth}>
+      <PullToRefresh onRefresh={handleRefresh}>
+        <div className="flex flex-col">
         {/* Header */}
         <div className="sticky top-0 z-10 space-y-3 bg-background p-4">
         <div className="flex items-center justify-between">
@@ -324,8 +326,9 @@ export function ExpensesPage() {
             </CardContent>
           </Card>
         )}
+          </div>
         </div>
-      </div>
-    </PullToRefresh>
+      </PullToRefresh>
+    </SwipeableContainer>
   )
 }

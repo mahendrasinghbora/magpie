@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PullToRefresh } from '@/components/PullToRefresh'
+import { SwipeableContainer } from '@/components/SwipeableContainer'
 import { formatAmount, formatMonth, getMonthKey } from '@/config/constants'
 import { getExpenses, getCategories, getPaymentMethods, getMonthlyIncome, getHouseholdMonthlyIncome, getHousehold, getHouseholdMembers } from '@/lib/firestore'
 import { CategoryPieChart } from '@/components/dashboard/CategoryPieChart'
@@ -219,8 +220,9 @@ export function DashboardPage() {
   }
 
   return (
-    <PullToRefresh onRefresh={handleRefresh}>
-      <div className="space-y-4 p-4">
+    <SwipeableContainer onSwipeLeft={goToNextMonth} onSwipeRight={goToPreviousMonth}>
+      <PullToRefresh onRefresh={handleRefresh}>
+        <div className="space-y-4 p-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -388,7 +390,8 @@ export function DashboardPage() {
           </CardContent>
         </Card>
       )}
-      </div>
-    </PullToRefresh>
+        </div>
+      </PullToRefresh>
+    </SwipeableContainer>
   )
 }

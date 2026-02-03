@@ -55,7 +55,11 @@ export function ExpensesPage() {
       filters.userIds.length > 0 ||
       filters.paymentMethodIds.length > 0 ||
       filters.tags.length > 0 ||
-      filters.type !== 'all'
+      filters.type !== 'all' ||
+      filters.dateRange.start !== null ||
+      filters.dateRange.end !== null ||
+      filters.amountRange.min !== null ||
+      filters.amountRange.max !== null
     )
   }, [filters])
 
@@ -157,6 +161,22 @@ export function ExpensesPage() {
 
     // User filter
     if (filters.userIds.length > 0 && !filters.userIds.includes(expense.userId)) {
+      return false
+    }
+
+    // Date range filter
+    if (filters.dateRange.start && expense.date < filters.dateRange.start) {
+      return false
+    }
+    if (filters.dateRange.end && expense.date > filters.dateRange.end) {
+      return false
+    }
+
+    // Amount range filter
+    if (filters.amountRange.min !== null && expense.amount < filters.amountRange.min) {
+      return false
+    }
+    if (filters.amountRange.max !== null && expense.amount > filters.amountRange.max) {
       return false
     }
 

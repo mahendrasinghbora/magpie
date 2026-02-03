@@ -64,8 +64,12 @@ interface AppState {
 
 const defaultFilters: ExpenseFilters = {
   dateRange: {
-    start: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    end: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
+    start: null,
+    end: null,
+  },
+  amountRange: {
+    min: null,
+    max: null,
   },
   categoryIds: [],
   userIds: [],

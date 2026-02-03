@@ -156,8 +156,12 @@ export interface UserStats {
 // Filter types
 export interface ExpenseFilters {
   dateRange: {
-    start: Date
-    end: Date
+    start: Date | null
+    end: Date | null
+  }
+  amountRange: {
+    min: number | null
+    max: number | null
   }
   categoryIds: string[]
   userIds: string[]

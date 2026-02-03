@@ -1,11 +1,13 @@
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { getIconComponent } from '@/lib/icons'
 import { cn } from '@/lib/utils'
+import { format } from 'date-fns'
 
 interface ExpenseFiltersProps {
   onClose: () => void
@@ -60,6 +62,70 @@ export function ExpenseFilters({ onClose }: ExpenseFiltersProps) {
             <TabsTrigger value="transfer">Transfers</TabsTrigger>
           </TabsList>
         </Tabs>
+      </div>
+
+      {/* Date Range */}
+      <div className="space-y-2">
+        <Label>Date Range</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs text-muted-foreground">From</Label>
+            <Input
+              type="date"
+              value={filters.dateRange.start ? format(filters.dateRange.start, 'yyyy-MM-dd') : ''}
+              onChange={(e) => {
+                const date = e.target.value ? new Date(e.target.value + 'T00:00:00') : null
+                setFilters({ dateRange: { ...filters.dateRange, start: date } })
+              }}
+              className="h-9"
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">To</Label>
+            <Input
+              type="date"
+              value={filters.dateRange.end ? format(filters.dateRange.end, 'yyyy-MM-dd') : ''}
+              onChange={(e) => {
+                const date = e.target.value ? new Date(e.target.value + 'T23:59:59') : null
+                setFilters({ dateRange: { ...filters.dateRange, end: date } })
+              }}
+              className="h-9"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Amount Range */}
+      <div className="space-y-2">
+        <Label>Amount Range</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-xs text-muted-foreground">Min</Label>
+            <Input
+              type="number"
+              placeholder="0"
+              value={filters.amountRange.min ?? ''}
+              onChange={(e) => {
+                const value = e.target.value ? parseFloat(e.target.value) : null
+                setFilters({ amountRange: { ...filters.amountRange, min: value } })
+              }}
+              className="h-9"
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Max</Label>
+            <Input
+              type="number"
+              placeholder="No limit"
+              value={filters.amountRange.max ?? ''}
+              onChange={(e) => {
+                const value = e.target.value ? parseFloat(e.target.value) : null
+                setFilters({ amountRange: { ...filters.amountRange, max: value } })
+              }}
+              className="h-9"
+            />
+          </div>
+        </div>
       </div>
 
       {/* View Mode (if in household) */}

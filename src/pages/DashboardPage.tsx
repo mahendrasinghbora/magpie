@@ -278,7 +278,7 @@ export function DashboardPage() {
             </div>
             <div className="h-px bg-border" />
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Saved</span>
+              <span className="text-muted-foreground">Remaining</span>
               <span className={`font-semibold ${stats.saved >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                 <AnimatedAmount value={stats.saved} />
                 {stats.totalIncome > 0 && (

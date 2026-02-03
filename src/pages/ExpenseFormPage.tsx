@@ -3,10 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ArrowLeft, Calendar as CalendarIcon, Clock, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Calendar as CalendarIcon, Clock, Trash2, X, Search } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
+import { useRecentItems } from '@/hooks/useRecentItems'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -89,7 +90,12 @@ export function ExpenseFormPage() {
   const [selectedPaymentType, setSelectedPaymentType] = useState<PaymentMethodType | ''>('')
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('')
   const [existingExpense, setExistingExpense] = useState<Expense | null>(null)
+  const [categorySearch, setCategorySearch] = useState('')
+  const [tagSearch, setTagSearch] = useState('')
   const paymentMethodInitialized = useRef(false)
+
+  const { recentIds: recentCategoryIds, addRecent: addRecentCategory } = useRecentItems('categories')
+  const { recentIds: recentTagNames, addRecent: addRecentTag } = useRecentItems('tags')
 
   const isEditing = !!id
 
@@ -312,6 +318,10 @@ export function ExpenseFormPage() {
         toast.success('Expense added')
       }
 
+      // Save to recent items
+      addRecentCategory(data.categoryId)
+      selectedTags.forEach((tag) => addRecentTag(tag))
+
       navigate(-1)
     } catch (error) {
       console.error('Error saving expense:', error)
@@ -397,29 +407,81 @@ export function ExpenseFormPage() {
         {/* Category Selection */}
         <div className="space-y-2">
           <Label>Category</Label>
-          <ScrollArea className="h-32">
-            <div className="flex flex-wrap gap-2">
-              {categories.map((category) => {
-                const Icon = getIconComponent(category.icon)
-                const isSelected = selectedCategoryId === category.id
-
-                return (
-                  <Button
-                    key={category.id}
-                    type="button"
-                    variant={isSelected ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setValue('categoryId', category.id)}
-                    className={cn('gap-1.5', isSelected && 'ring-2 ring-primary')}
-                  >
-                    <Icon
-                      className="h-4 w-4"
-                      style={{ color: isSelected ? undefined : category.color }}
-                    />
-                    {category.name}
-                  </Button>
-                )
-              })}
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search categories..."
+              value={categorySearch}
+              onChange={(e) => setCategorySearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <ScrollArea className="h-36">
+            <div className="space-y-3">
+              {/* Recent Categories */}
+              {recentCategoryIds.length > 0 && !categorySearch && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Recent</p>
+                  <div className="flex flex-wrap gap-2">
+                    {recentCategoryIds
+                      .map((id) => categories.find((c) => c.id === id))
+                      .filter(Boolean)
+                      .map((category) => {
+                        if (!category) return null
+                        const Icon = getIconComponent(category.icon)
+                        const isSelected = selectedCategoryId === category.id
+                        return (
+                          <Button
+                            key={`recent-${category.id}`}
+                            type="button"
+                            variant={isSelected ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setValue('categoryId', category.id)}
+                            className={cn('gap-1.5', isSelected && 'ring-2 ring-primary')}
+                          >
+                            <Icon
+                              className="h-4 w-4"
+                              style={{ color: isSelected ? undefined : category.color }}
+                            />
+                            {category.name}
+                          </Button>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+              {/* All Categories */}
+              <div className="space-y-1.5">
+                {recentCategoryIds.length > 0 && !categorySearch && (
+                  <p className="text-xs font-medium text-muted-foreground">All</p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {categories
+                    .filter((c) => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
+                    .map((category) => {
+                      const Icon = getIconComponent(category.icon)
+                      const isSelected = selectedCategoryId === category.id
+                      return (
+                        <Button
+                          key={category.id}
+                          type="button"
+                          variant={isSelected ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setValue('categoryId', category.id)}
+                          className={cn('gap-1.5', isSelected && 'ring-2 ring-primary')}
+                        >
+                          <Icon
+                            className="h-4 w-4"
+                            style={{ color: isSelected ? undefined : category.color }}
+                          />
+                          {category.name}
+                        </Button>
+                      )
+                    })}
+                </div>
+              </div>
             </div>
           </ScrollArea>
           {errors.categoryId && (
@@ -526,32 +588,77 @@ export function ExpenseFormPage() {
         {/* Tags */}
         <div className="space-y-2">
           <Label>Tags (Optional)</Label>
-          <div className="flex flex-wrap gap-2">
-            {selectedTags.map((tag) => (
-              <Badge key={tag} variant="secondary" className="gap-1">
-                {tag}
-                <X
-                  className="h-3 w-3 cursor-pointer"
-                  onClick={() => toggleTag(tag)}
-                />
-              </Badge>
-            ))}
-          </div>
-          <ScrollArea className="h-24">
+          {/* Selected Tags */}
+          {selectedTags.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {tags
-                .filter((t) => !selectedTags.includes(t.name))
-                .map((tag) => (
-                  <Button
-                    key={tag.id}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleTag(tag.name)}
-                  >
-                    {tag.name}
-                  </Button>
-                ))}
+              {selectedTags.map((tag) => (
+                <Badge key={tag} variant="secondary" className="gap-1">
+                  {tag}
+                  <X
+                    className="h-3 w-3 cursor-pointer"
+                    onClick={() => toggleTag(tag)}
+                  />
+                </Badge>
+              ))}
+            </div>
+          )}
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search tags..."
+              value={tagSearch}
+              onChange={(e) => setTagSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <ScrollArea className="h-28">
+            <div className="space-y-3">
+              {/* Recent Tags */}
+              {recentTagNames.length > 0 && !tagSearch && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Recent</p>
+                  <div className="flex flex-wrap gap-2">
+                    {recentTagNames
+                      .filter((name) => !selectedTags.includes(name))
+                      .filter((name) => tags.some((t) => t.name === name))
+                      .map((tagName) => (
+                        <Button
+                          key={`recent-${tagName}`}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => toggleTag(tagName)}
+                        >
+                          {tagName}
+                        </Button>
+                      ))}
+                  </div>
+                </div>
+              )}
+              {/* All Tags */}
+              <div className="space-y-1.5">
+                {recentTagNames.length > 0 && !tagSearch && (
+                  <p className="text-xs font-medium text-muted-foreground">All</p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {tags
+                    .filter((t) => !selectedTags.includes(t.name))
+                    .filter((t) => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
+                    .map((tag) => (
+                      <Button
+                        key={tag.id}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleTag(tag.name)}
+                      >
+                        {tag.name}
+                      </Button>
+                    ))}
+                </div>
+              </div>
             </div>
           </ScrollArea>
         </div>

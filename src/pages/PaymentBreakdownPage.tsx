@@ -92,21 +92,19 @@ export function PaymentBreakdownPage() {
         }
 
         // Load payment methods
-        // For households, load all members' payment methods
-        if (paymentMethods.length === 0) {
-          if (user.householdId) {
-            let members = householdMembers
-            if (members.length === 0) {
-              members = await getHouseholdMembers(user.householdId)
-              setHouseholdMembers(members)
-            }
-            const memberIds = members.map((m) => m.id)
-            const allPaymentMethods = await getHouseholdPaymentMethods(memberIds)
-            setPaymentMethods(allPaymentMethods)
-          } else {
-            const paymentMethodsData = await getPaymentMethods(user.id)
-            setPaymentMethods(paymentMethodsData)
+        // For households, always load all members' payment methods
+        if (user.householdId) {
+          let members = householdMembers
+          if (members.length === 0) {
+            members = await getHouseholdMembers(user.householdId)
+            setHouseholdMembers(members)
           }
+          const memberIds = members.map((m) => m.id)
+          const allPaymentMethods = await getHouseholdPaymentMethods(memberIds)
+          setPaymentMethods(allPaymentMethods)
+        } else if (paymentMethods.length === 0) {
+          const paymentMethodsData = await getPaymentMethods(user.id)
+          setPaymentMethods(paymentMethodsData)
         }
       } catch (error) {
         console.error('Error loading data:', error)
@@ -169,28 +167,30 @@ export function PaymentBreakdownPage() {
 
     setTypeStats(typeStatsData)
 
-    // Calculate by individual payment method
-    const methodMap = new Map<string, { total: number; count: number }>()
+    // Calculate by payment method name (club same names together)
+    const methodMap = new Map<string, { total: number; count: number; type: PaymentMethodType }>()
 
     expensesWithPayment.forEach((expense) => {
       if (expense.paymentMethodId) {
-        const existing = methodMap.get(expense.paymentMethodId) || { total: 0, count: 0 }
-        methodMap.set(expense.paymentMethodId, {
+        const pm = paymentMethods.find((p) => p.id === expense.paymentMethodId)
+        const name = pm?.name || 'Unknown'
+        const existing = methodMap.get(name) || { total: 0, count: 0, type: pm?.type || 'cash' }
+        methodMap.set(name, {
           total: existing.total + expense.amount,
           count: existing.count + 1,
+          type: existing.type,
         })
       }
     })
 
     const methodStatsData: PaymentMethodStats[] = Array.from(methodMap.entries())
-      .map(([pmId, data]) => {
-        const pm = paymentMethods.find((p) => p.id === pmId)
+      .map(([name, data]) => {
         return {
-          id: pmId,
-          name: pm?.name || 'Unknown',
-          type: pm?.type || 'cash',
-          lastFourDigits: pm?.lastFourDigits,
-          bankName: pm?.bankName,
+          id: name,
+          name: name,
+          type: data.type,
+          lastFourDigits: undefined,
+          bankName: undefined,
           total: data.total,
           count: data.count,
           percentage: total > 0 ? (data.total / total) * 100 : 0,

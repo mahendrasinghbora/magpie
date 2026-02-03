@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { formatAmount, formatMonth, getMonthKey } from '@/config/constants'
-import { getExpenses, getCategories, getMonthlyIncome, getHouseholdMonthlyIncome, getHousehold, getHouseholdMembers } from '@/lib/firestore'
+import { getExpenses, getCategories, getPaymentMethods, getMonthlyIncome, getHouseholdMonthlyIncome, getHousehold, getHouseholdMembers } from '@/lib/firestore'
 import { CategoryPieChart } from '@/components/dashboard/CategoryPieChart'
 import { StatCard } from '@/components/dashboard/StatCard'
 import { UserComparison } from '@/components/dashboard/UserComparison'
@@ -28,6 +28,8 @@ export function DashboardPage() {
     setExpenses,
     categories,
     setCategories,
+    paymentMethods,
+    setPaymentMethods,
     monthlyIncome,
     setMonthlyIncome,
     household,
@@ -73,6 +75,12 @@ export function DashboardPage() {
         setCategories(categoriesData)
       }
 
+      // Load payment methods if not already loaded
+      if (paymentMethods.length === 0) {
+        const paymentMethodsData = await getPaymentMethods(user.id)
+        setPaymentMethods(paymentMethodsData)
+      }
+
       // Load monthly income
       const monthKey = getMonthKey(currentMonth)
       const incomeData = await getMonthlyIncome(user.id, monthKey)
@@ -99,7 +107,7 @@ export function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [user, currentMonth, categories.length, household, householdMembers.length, setExpenses, setCategories, setMonthlyIncome, setHousehold, setHouseholdMembers])
+  }, [user, currentMonth, categories.length, paymentMethods.length, household, householdMembers.length, setExpenses, setCategories, setPaymentMethods, setMonthlyIncome, setHousehold, setHouseholdMembers])
 
   // Initial load and on month change
   useEffect(() => {
@@ -132,6 +140,16 @@ export function DashboardPage() {
     const totalExpenses = actualExpenses.reduce((sum, e) => sum + e.amount, 0)
     const totalTransfers = transfers.reduce((sum, e) => sum + e.amount, 0)
 
+    // Calculate cash outflow (actual money leaving your account)
+    // Credit card expenses don't reduce savings until bill is paid
+    // Cash outflow = non-CC expenses + transfers (CC bill payments)
+    const cashOutflow = actualExpenses.reduce((sum, e) => {
+      const paymentMethod = paymentMethods.find((pm) => pm.id === e.paymentMethodId)
+      // If paid with credit card, don't count towards cash outflow
+      if (paymentMethod?.type === 'credit_card') return sum
+      return sum + e.amount
+    }, 0) + totalTransfers
+
     // Calculate income based on view mode
     let totalIncome = 0
     if (viewMode === 'my') {
@@ -141,7 +159,8 @@ export function DashboardPage() {
       totalIncome = householdTotalIncome
     }
 
-    const saved = totalIncome - totalExpenses
+    // Savings based on actual cash outflow, not credit card expenses
+    const saved = totalIncome - cashOutflow
     const savedPercentage = totalIncome > 0 ? (saved / totalIncome) * 100 : 0
 
     // Category breakdown
@@ -193,7 +212,7 @@ export function DashboardPage() {
       byCategory,
       byUser,
     })
-  }, [expenses, categories, viewMode, monthlyIncome, householdTotalIncome, householdMembers, user])
+  }, [expenses, categories, viewMode, monthlyIncome, householdTotalIncome, householdMembers, user, paymentMethods])
 
   if (loading) {
     return <DashboardSkeleton />

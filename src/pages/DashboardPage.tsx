@@ -297,7 +297,7 @@ export function DashboardPage() {
         <div className="grid grid-cols-2 gap-3">
           <StatCard
             title="Transactions"
-            value={<AnimatedAmount value={expenses.filter((e) => e.type === 'expense').length} format="number" />}
+            value={<AnimatedAmount value={expenses.filter((e) => e.type === 'expense' && (viewMode === 'all' || e.userId === user?.id)).length} format="number" />}
             subtitle="this month"
           />
           <StatCard

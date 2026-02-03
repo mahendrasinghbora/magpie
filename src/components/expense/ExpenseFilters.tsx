@@ -49,7 +49,7 @@ export function ExpenseFilters({ onClose }: ExpenseFiltersProps) {
   }
 
   return (
-    <div className="flex flex-col gap-6 py-4">
+    <div className="flex flex-col gap-6 p-4">
       {/* Transaction Type */}
       <div className="space-y-2">
         <Label>Transaction Type</Label>

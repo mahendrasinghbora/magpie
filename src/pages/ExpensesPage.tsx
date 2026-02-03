@@ -263,11 +263,7 @@ export function ExpensesPage() {
                               {displayTags.map((tag) => (
                                 <span
                                   key={tag}
-                                  className="text-[10px] px-1.5 py-0.5 rounded-full font-normal border"
-                                  style={{
-                                    borderColor: category?.color,
-                                    color: category?.color,
-                                  }}
+                                  className="text-[10px] px-1.5 py-0.5 rounded-full font-normal border border-muted-foreground/40 text-muted-foreground"
                                 >
                                   {tag}
                                 </span>

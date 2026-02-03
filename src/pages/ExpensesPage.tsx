@@ -295,7 +295,7 @@ export function ExpensesPage() {
                           )}
                         </div>
 
-                        {/* Amount and Time */}
+                        {/* Amount, Time, and Payment Method */}
                         <div className="text-right shrink-0">
                           <p className="font-semibold" style={{ color: isCreditCard ? '#f59e0b' : '#e11d48' }}>
                             {formatAmount(expense.amount, !isCreditCard)}
@@ -303,6 +303,19 @@ export function ExpensesPage() {
                           <p className="text-xs text-muted-foreground">
                             {formatTime(expense.date)}
                           </p>
+                          {expensePaymentMethod && (
+                            <span className={`inline-block text-[10px] mt-1 px-1.5 py-0.5 rounded font-medium ${
+                              expensePaymentMethod.type === 'credit_card'
+                                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                                : expensePaymentMethod.type === 'upi'
+                                ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+                                : expensePaymentMethod.type === 'cash'
+                                ? 'bg-green-500/15 text-green-600 dark:text-green-400'
+                                : 'bg-teal-500/15 text-teal-600 dark:text-teal-400'
+                            }`}>
+                              {expensePaymentMethod.name}
+                            </span>
+                          )}
                           {user?.householdId && member && viewMode === 'all' && (
                             <Avatar className="ml-auto mt-1 h-5 w-5">
                               <AvatarImage src={member.photoURL} />

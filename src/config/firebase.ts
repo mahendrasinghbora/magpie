@@ -19,6 +19,9 @@ const app = initializeApp(firebaseConfig)
 export const auth = getAuth(app)
 export const googleProvider = new GoogleAuthProvider()
 
+// Add Google Drive scope for backup functionality
+googleProvider.addScope('https://www.googleapis.com/auth/drive.file')
+
 // Initialize Firestore
 export const db = getFirestore(app)
 

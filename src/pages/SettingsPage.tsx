@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from 'next-themes'
+import { toast } from 'sonner'
 import {
   LogOut,
   CreditCard,
@@ -14,6 +15,9 @@ import {
   Moon,
   Sun,
   Monitor,
+  Cloud,
+  CloudUpload,
+  Loader2,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
@@ -37,6 +41,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  backupToGoogleDrive,
+  getLastBackupTime,
+  formatLastBackupTime,
+  isBackupNeeded,
+} from '@/lib/backup'
 
 export function SettingsPage() {
   const { user, signOut } = useAuth()
@@ -44,6 +54,33 @@ export function SettingsPage() {
   const navigate = useNavigate()
   const { theme, setTheme } = useTheme()
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false)
+  const [backingUp, setBackingUp] = useState(false)
+  const [lastBackup, setLastBackup] = useState<Date | null>(null)
+
+  // Load last backup time on mount
+  useEffect(() => {
+    setLastBackup(getLastBackupTime())
+  }, [])
+
+  const handleBackup = async () => {
+    if (!user) return
+
+    setBackingUp(true)
+    try {
+      const result = await backupToGoogleDrive(user.id, user.householdId)
+      if (result.success) {
+        toast.success('Backup completed successfully')
+        setLastBackup(new Date())
+      } else {
+        toast.error(result.error || 'Backup failed')
+      }
+    } catch (error) {
+      toast.error('Backup failed')
+      console.error('Backup error:', error)
+    } finally {
+      setBackingUp(false)
+    }
+  }
 
   const handleSignOut = async () => {
     try {
@@ -226,6 +263,50 @@ export function SettingsPage() {
               </SelectContent>
             </Select>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Backup */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Backup</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 pt-0 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Cloud className="h-5 w-5" />
+              <div>
+                <p className="font-medium">Google Drive Backup</p>
+                <p className="text-sm text-muted-foreground">
+                  Last backup: {formatLastBackupTime(lastBackup)}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBackup}
+              disabled={backingUp}
+              className="gap-2"
+            >
+              {backingUp ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Backing up...
+                </>
+              ) : (
+                <>
+                  <CloudUpload className="h-4 w-4" />
+                  Backup Now
+                </>
+              )}
+            </Button>
+          </div>
+          {isBackupNeeded() && lastBackup && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              It's been more than 24 hours since your last backup
+            </p>
+          )}
         </CardContent>
       </Card>
 

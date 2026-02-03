@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ArrowLeft, Calendar as CalendarIcon, Clock, Trash2, X, Search } from 'lucide-react'
+import { ArrowLeft, Calendar as CalendarIcon, Clock, Trash2, X, Search, Plus } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
@@ -44,6 +44,8 @@ import {
   getCategories,
   getPaymentMethods,
   getTags,
+  createCategory,
+  createTag,
   addHouseholdIncomeToRecipient,
 } from '@/lib/firestore'
 import { getMonthKey } from '@/config/constants'
@@ -266,6 +268,61 @@ export function ExpenseFormPage() {
         ? prev.filter((t) => t !== tagName)
         : [...prev, tagName]
     )
+  }
+
+  const [creatingCategory, setCreatingCategory] = useState(false)
+  const [creatingTag, setCreatingTag] = useState(false)
+
+  const handleCreateCategory = async (name: string) => {
+    if (!user || !name.trim()) return
+
+    setCreatingCategory(true)
+    try {
+      const newCategory = {
+        name: name.trim(),
+        icon: 'MoreHorizontal' as const,
+        color: '#71717a',
+        isCustom: true,
+        isTransfer: false,
+        order: categories.length,
+        householdId: user.householdId,
+      }
+      const newId = await createCategory(newCategory)
+      const categoryWithId = { ...newCategory, id: newId }
+      setCategories([...categories, categoryWithId])
+      setValue('categoryId', newId)
+      setCategorySearch('')
+      toast.success(`Category "${name}" created`)
+    } catch (error) {
+      console.error('Error creating category:', error)
+      toast.error('Failed to create category')
+    } finally {
+      setCreatingCategory(false)
+    }
+  }
+
+  const handleCreateTag = async (name: string) => {
+    if (!user || !name.trim()) return
+
+    setCreatingTag(true)
+    try {
+      const newTag = {
+        name: name.trim(),
+        householdId: user.householdId,
+        isCustom: true,
+      }
+      const newId = await createTag(newTag)
+      const tagWithId = { ...newTag, id: newId }
+      setTags([...tags, tagWithId])
+      setSelectedTags((prev) => [...prev, name.trim()])
+      setTagSearch('')
+      toast.success(`Tag "${name}" created`)
+    } catch (error) {
+      console.error('Error creating tag:', error)
+      toast.error('Failed to create tag')
+    } finally {
+      setCreatingTag(false)
+    }
   }
 
   const handleDelete = async () => {
@@ -518,6 +575,22 @@ export function ExpenseFormPage() {
                         </Button>
                       )
                     })}
+                  {/* Create new category option */}
+                  {categorySearch.trim() && !categories.some(
+                    (c) => c.name.toLowerCase() === categorySearch.toLowerCase()
+                  ) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCreateCategory(categorySearch)}
+                      disabled={creatingCategory}
+                      className="gap-1.5 border-dashed"
+                    >
+                      <Plus className="h-4 w-4" />
+                      {creatingCategory ? 'Creating...' : `Create "${categorySearch.trim()}"`}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -695,6 +768,24 @@ export function ExpenseFormPage() {
                         {tag.name}
                       </Button>
                     ))}
+                  {/* Create new tag option */}
+                  {tagSearch.trim() && !tags.some(
+                    (t) => t.name.toLowerCase() === tagSearch.toLowerCase()
+                  ) && !selectedTags.some(
+                    (t) => t.toLowerCase() === tagSearch.toLowerCase()
+                  ) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCreateTag(tagSearch)}
+                      disabled={creatingTag}
+                      className="gap-1.5 border-dashed"
+                    >
+                      <Plus className="h-4 w-4" />
+                      {creatingTag ? 'Creating...' : `Create "${tagSearch.trim()}"`}
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>

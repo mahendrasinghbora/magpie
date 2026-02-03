@@ -246,6 +246,13 @@ export async function createTag(tag: Omit<Tag, 'id'>): Promise<string> {
   return docRef.id
 }
 
+export async function updateTag(
+  id: string,
+  updates: Partial<Omit<Tag, 'id'>>
+): Promise<void> {
+  await updateDoc(doc(db, 'tags', id), updates)
+}
+
 export async function deleteTag(id: string): Promise<void> {
   await deleteDoc(doc(db, 'tags', id))
 }

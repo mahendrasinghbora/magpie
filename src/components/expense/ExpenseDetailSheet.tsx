@@ -67,8 +67,8 @@ export function ExpenseDetailSheet({
         <div className="mt-4 space-y-4 pb-4">
           {/* Amount */}
           <div className="text-center">
-            <p className="text-3xl font-bold" style={{ color: '#e11d48' }}>
-              {formatAmount(expense.amount, true)}
+            <p className="text-3xl font-bold" style={{ color: paymentMethod?.type === 'credit_card' ? '#f59e0b' : '#e11d48' }}>
+              {formatAmount(expense.amount, paymentMethod?.type !== 'credit_card')}
             </p>
           </div>
 

@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
@@ -16,11 +17,20 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
-import { getCategories, createCategory, deleteCategory } from '@/lib/firestore'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { getCategories, createCategory, updateCategory, deleteCategory } from '@/lib/firestore'
 import { getIconComponent, availableIcons } from '@/lib/icons'
-import type { CategoryIcon } from '@/types'
+import type { Category, CategoryIcon } from '@/types'
 
 const categorySchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -41,7 +51,9 @@ export function CategoriesPage() {
   const { user } = useAuth()
   const { categories, setCategories } = useStore()
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
 
   const {
     register,
@@ -70,26 +82,50 @@ export function CategoriesPage() {
     loadCategories()
   }, [user])
 
+  const openCreateDialog = () => {
+    setEditingCategory(null)
+    reset({
+      name: '',
+      icon: 'MoreHorizontal',
+      color: COLORS[0],
+    })
+    setDialogOpen(true)
+  }
+
+  const openEditDialog = (category: Category) => {
+    setEditingCategory(category)
+    reset({
+      name: category.name,
+      icon: category.icon,
+      color: category.color,
+    })
+    setDialogOpen(true)
+  }
+
   const onSubmit = async (data: CategoryFormData) => {
     if (!user) return
 
     setLoading(true)
     try {
-      const maxOrder = Math.max(...categories.map((c) => c.order), 0)
-      const id = await createCategory({
-        name: data.name,
-        icon: data.icon as CategoryIcon,
-        color: data.color,
-        isCustom: true,
-        isTransfer: false,
-        order: maxOrder + 1,
-        householdId: user.householdId,
-      })
-
-      setCategories([
-        ...categories,
-        {
-          id,
+      if (editingCategory) {
+        // Update existing category
+        await updateCategory(editingCategory.id, {
+          name: data.name,
+          icon: data.icon as CategoryIcon,
+          color: data.color,
+        })
+        setCategories(
+          categories.map((c) =>
+            c.id === editingCategory.id
+              ? { ...c, name: data.name, icon: data.icon as CategoryIcon, color: data.color }
+              : c
+          )
+        )
+        toast.success('Category updated')
+      } else {
+        // Create new category
+        const maxOrder = Math.max(...categories.map((c) => c.order), 0)
+        const id = await createCategory({
           name: data.name,
           icon: data.icon as CategoryIcon,
           color: data.color,
@@ -97,24 +133,49 @@ export function CategoriesPage() {
           isTransfer: false,
           order: maxOrder + 1,
           householdId: user.householdId,
-        },
-      ])
+        })
+
+        setCategories([
+          ...categories,
+          {
+            id,
+            name: data.name,
+            icon: data.icon as CategoryIcon,
+            color: data.color,
+            isCustom: true,
+            isTransfer: false,
+            order: maxOrder + 1,
+            householdId: user.householdId,
+          },
+        ])
+        toast.success('Category created')
+      }
 
       setDialogOpen(false)
       reset()
     } catch (error) {
-      console.error('Error creating category:', error)
+      console.error('Error saving category:', error)
+      toast.error('Failed to save category')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async () => {
+    if (!editingCategory) return
+
+    setLoading(true)
     try {
-      await deleteCategory(id)
-      setCategories(categories.filter((c) => c.id !== id))
+      await deleteCategory(editingCategory.id)
+      setCategories(categories.filter((c) => c.id !== editingCategory.id))
+      setDeleteDialogOpen(false)
+      setDialogOpen(false)
+      toast.success('Category deleted')
     } catch (error) {
       console.error('Error deleting category:', error)
+      toast.error('Failed to delete category')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -128,107 +189,132 @@ export function CategoriesPage() {
           </Button>
           <h1 className="text-lg font-semibold">Categories</h1>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="icon">
-              <Plus className="h-5 w-5" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Category</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Name</Label>
-                <Input {...register('name')} placeholder="Category name" />
-                {errors.name && (
-                  <p className="text-sm text-destructive">{errors.name.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Icon</Label>
-                <ScrollArea className="h-32">
-                  <div className="flex flex-wrap gap-2">
-                    {availableIcons.map((icon) => {
-                      const Icon = getIconComponent(icon)
-                      return (
-                        <Button
-                          key={icon}
-                          type="button"
-                          variant={selectedIcon === icon ? 'default' : 'outline'}
-                          size="icon"
-                          onClick={() => setValue('icon', icon)}
-                        >
-                          <Icon className="h-4 w-4" />
-                        </Button>
-                      )
-                    })}
-                  </div>
-                </ScrollArea>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Color</Label>
-                <div className="flex flex-wrap gap-2">
-                  {COLORS.map((color) => (
-                    <button
-                      key={color}
-                      type="button"
-                      className={`h-8 w-8 rounded-full ${
-                        selectedColor === color ? 'ring-2 ring-offset-2 ring-primary' : ''
-                      }`}
-                      style={{ backgroundColor: color }}
-                      onClick={() => setValue('color', color)}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Adding...' : 'Add Category'}
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button size="icon" onClick={openCreateDialog}>
+          <Plus className="h-5 w-5" />
+        </Button>
       </div>
 
-      {/* Categories List */}
-      <div className="space-y-2 p-4">
+      {/* Categories Grid */}
+      <div className="grid grid-cols-2 gap-2 p-4">
         {categories.map((category) => {
           const Icon = getIconComponent(category.icon)
           return (
-            <Card key={category.id}>
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="flex h-10 w-10 items-center justify-center rounded-full"
-                    style={{ backgroundColor: `${category.color}20` }}
-                  >
-                    <Icon className="h-5 w-5" style={{ color: category.color }} />
-                  </div>
-                  <div>
-                    <p className="font-medium">{category.name}</p>
-                    {category.isCustom && (
-                      <p className="text-xs text-muted-foreground">Custom</p>
-                    )}
-                  </div>
+            <Card
+              key={category.id}
+              className="cursor-pointer transition-colors hover:bg-muted/50"
+              onClick={() => openEditDialog(category)}
+            >
+              <CardContent className="flex items-center gap-2 p-3">
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                  style={{ backgroundColor: `${category.color}20` }}
+                >
+                  <Icon className="h-4 w-4" style={{ color: category.color }} />
                 </div>
-                {category.isCustom && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(category.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                )}
+                <p className="truncate text-sm font-medium">{category.name}</p>
               </CardContent>
             </Card>
           )
         })}
       </div>
+
+      {/* Create/Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingCategory ? 'Edit Category' : 'Add Category'}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input {...register('name')} placeholder="Category name" />
+              {errors.name && (
+                <p className="text-sm text-destructive">{errors.name.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Icon</Label>
+              <ScrollArea className="h-32">
+                <div className="flex flex-wrap gap-2">
+                  {availableIcons.map((icon) => {
+                    const Icon = getIconComponent(icon)
+                    return (
+                      <Button
+                        key={icon}
+                        type="button"
+                        variant={selectedIcon === icon ? 'default' : 'outline'}
+                        size="icon"
+                        onClick={() => setValue('icon', icon)}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </Button>
+                    )
+                  })}
+                </div>
+              </ScrollArea>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Color</Label>
+              <div className="flex flex-wrap gap-2">
+                {COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={`h-8 w-8 rounded-full ${
+                      selectedColor === color ? 'ring-2 ring-offset-2 ring-primary' : ''
+                    }`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setValue('color', color)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              {editingCategory && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  disabled={loading}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </Button>
+              )}
+              <Button type="submit" className="flex-1" disabled={loading}>
+                {loading ? 'Saving...' : editingCategory ? 'Save Changes' : 'Add Category'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete category?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{editingCategory?.name}". Expenses using this category won't be deleted but will show "Unknown" category.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={loading}
+            >
+              {loading ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

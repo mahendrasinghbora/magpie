@@ -221,6 +221,8 @@ export function ExpensesPage() {
                 const category = categories.find((c) => c.id === expense.categoryId)
                 const Icon = category ? getIconComponent(category.icon) : null
                 const member = getMemberInfo(expense.userId)
+                const expensePaymentMethod = paymentMethods.find((pm) => pm.id === expense.paymentMethodId)
+                const isCreditCard = expensePaymentMethod?.type === 'credit_card'
 
                 // Title: Payee if exists, otherwise category name
                 const title = expense.payee || category?.name || 'Unknown'
@@ -295,8 +297,8 @@ export function ExpensesPage() {
 
                         {/* Amount and Time */}
                         <div className="text-right shrink-0">
-                          <p className="font-semibold" style={{ color: '#e11d48' }}>
-                            {formatAmount(expense.amount, true)}
+                          <p className="font-semibold" style={{ color: isCreditCard ? '#f59e0b' : '#e11d48' }}>
+                            {formatAmount(expense.amount, !isCreditCard)}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {formatTime(expense.date)}

@@ -1,28 +1,41 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
-import { getTags, createTag, deleteTag } from '@/lib/firestore'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { getTags, createTag, updateTag, deleteTag } from '@/lib/firestore'
+import type { Tag } from '@/types'
 
 export function TagsPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { tags, setTags } = useStore()
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [newTagName, setNewTagName] = useState('')
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [tagName, setTagName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [editingTag, setEditingTag] = useState<Tag | null>(null)
 
   useEffect(() => {
     async function loadTags() {
@@ -33,48 +46,79 @@ export function TagsPage() {
     loadTags()
   }, [user])
 
-  const handleCreate = async () => {
-    if (!user || !newTagName.trim()) return
+  const openCreateDialog = () => {
+    setEditingTag(null)
+    setTagName('')
+    setDialogOpen(true)
+  }
+
+  const openEditDialog = (tag: Tag) => {
+    setEditingTag(tag)
+    setTagName(tag.name)
+    setDialogOpen(true)
+  }
+
+  const handleSubmit = async () => {
+    if (!user || !tagName.trim()) return
 
     setLoading(true)
     try {
-      const id = await createTag({
-        name: newTagName.trim(),
-        householdId: user.householdId,
-        isCustom: true,
-      })
-
-      setTags([
-        ...tags,
-        {
-          id,
-          name: newTagName.trim(),
+      if (editingTag) {
+        // Update existing tag
+        await updateTag(editingTag.id, { name: tagName.trim() })
+        setTags(
+          tags.map((t) =>
+            t.id === editingTag.id ? { ...t, name: tagName.trim() } : t
+          )
+        )
+        toast.success('Tag updated')
+      } else {
+        // Create new tag
+        const id = await createTag({
+          name: tagName.trim(),
           householdId: user.householdId,
           isCustom: true,
-        },
-      ])
+        })
+
+        setTags([
+          ...tags,
+          {
+            id,
+            name: tagName.trim(),
+            householdId: user.householdId,
+            isCustom: true,
+          },
+        ])
+        toast.success('Tag created')
+      }
 
       setDialogOpen(false)
-      setNewTagName('')
+      setTagName('')
     } catch (error) {
-      console.error('Error creating tag:', error)
+      console.error('Error saving tag:', error)
+      toast.error('Failed to save tag')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async () => {
+    if (!editingTag) return
+
+    setLoading(true)
     try {
-      await deleteTag(id)
-      setTags(tags.filter((t) => t.id !== id))
+      await deleteTag(editingTag.id)
+      setTags(tags.filter((t) => t.id !== editingTag.id))
+      setDeleteDialogOpen(false)
+      setDialogOpen(false)
+      toast.success('Tag deleted')
     } catch (error) {
       console.error('Error deleting tag:', error)
+      toast.error('Failed to delete tag')
+    } finally {
+      setLoading(false)
     }
   }
-
-  // Group tags by custom vs default
-  const defaultTags = tags.filter((t) => !t.isCustom)
-  const customTags = tags.filter((t) => t.isCustom)
 
   return (
     <div className="min-h-screen bg-background">
@@ -86,81 +130,93 @@ export function TagsPage() {
           </Button>
           <h1 className="text-lg font-semibold">Tags</h1>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="icon">
-              <Plus className="h-5 w-5" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Tag</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
+        <Button size="icon" onClick={openCreateDialog}>
+          <Plus className="h-5 w-5" />
+        </Button>
+      </div>
+
+      <div className="p-4">
+        <div className="flex flex-wrap gap-2">
+          {tags.map((tag) => (
+            <Badge
+              key={tag.id}
+              variant="secondary"
+              className="cursor-pointer px-3 py-1.5 text-sm hover:bg-secondary/80"
+              onClick={() => openEditDialog(tag)}
+            >
+              {tag.name}
+            </Badge>
+          ))}
+        </div>
+      </div>
+
+      {/* Create/Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {editingTag ? 'Edit Tag' : 'Add Tag'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Name</Label>
               <Input
                 placeholder="Tag name"
-                value={newTagName}
-                onChange={(e) => setNewTagName(e.target.value)}
+                value={tagName}
+                onChange={(e) => setTagName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && tagName.trim()) {
+                    handleSubmit()
+                  }
+                }}
               />
+            </div>
+            <div className="flex gap-2">
+              {editingTag && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  disabled={loading}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </Button>
+              )}
               <Button
-                onClick={handleCreate}
-                className="w-full"
-                disabled={loading || !newTagName.trim()}
+                onClick={handleSubmit}
+                className="flex-1"
+                disabled={loading || !tagName.trim()}
               >
-                {loading ? 'Adding...' : 'Add Tag'}
+                {loading ? 'Saving...' : editingTag ? 'Save Changes' : 'Add Tag'}
               </Button>
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-      <div className="space-y-4 p-4">
-        {/* Custom Tags */}
-        {customTags.length > 0 && (
-          <Card>
-            <CardContent className="p-4">
-              <p className="mb-3 text-sm font-medium text-muted-foreground">
-                Custom Tags
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {customTags.map((tag) => (
-                  <Badge
-                    key={tag.id}
-                    variant="secondary"
-                    className="gap-1 pr-1"
-                  >
-                    {tag.name}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-4 w-4 p-0 hover:bg-transparent"
-                      onClick={() => handleDelete(tag.id)}
-                    >
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Default Tags */}
-        <Card>
-          <CardContent className="p-4">
-            <p className="mb-3 text-sm font-medium text-muted-foreground">
-              Default Tags
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {defaultTags.map((tag) => (
-                <Badge key={tag.id} variant="outline">
-                  {tag.name}
-                </Badge>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete tag?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{editingTag?.name}". Expenses using this tag will no longer show it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={loading}
+            >
+              {loading ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

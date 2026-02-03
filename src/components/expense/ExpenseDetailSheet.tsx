@@ -21,6 +21,7 @@ interface ExpenseDetailSheetProps {
   category?: Category
   paymentMethod?: PaymentMethod
   memberInfo?: { displayName: string; photoURL: string }
+  currentUserId?: string
 }
 
 export function ExpenseDetailSheet({
@@ -30,6 +31,7 @@ export function ExpenseDetailSheet({
   category,
   paymentMethod,
   memberInfo,
+  currentUserId,
 }: ExpenseDetailSheetProps) {
   const navigate = useNavigate()
 
@@ -165,11 +167,13 @@ export function ExpenseDetailSheet({
             </div>
           )}
 
-          {/* Edit Button */}
-          <Button onClick={handleEdit} className="w-full" size="lg">
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit Expense
-          </Button>
+          {/* Edit Button - only show if current user owns the expense */}
+          {currentUserId === expense.userId && (
+            <Button onClick={handleEdit} className="w-full" size="lg">
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit Expense
+            </Button>
+          )}
         </div>
       </SheetContent>
     </Sheet>

@@ -16,9 +16,10 @@ interface SwipeableExpenseCardProps {
   children: ReactNode
   onDelete: () => Promise<void>
   onClick: () => void
+  canDelete?: boolean
 }
 
-export function SwipeableExpenseCard({ children, onDelete, onClick }: SwipeableExpenseCardProps) {
+export function SwipeableExpenseCard({ children, onDelete, onClick, canDelete = true }: SwipeableExpenseCardProps) {
   const [offsetX, setOffsetX] = useState(0)
   const [showDelete, setShowDelete] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -31,6 +32,7 @@ export function SwipeableExpenseCard({ children, onDelete, onClick }: SwipeableE
   const deleteButtonWidth = 80
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (!canDelete) return
     startX.current = e.touches[0].clientX
     startY.current = e.touches[0].clientY
     isDragging.current = true
@@ -113,18 +115,20 @@ export function SwipeableExpenseCard({ children, onDelete, onClick }: SwipeableE
   return (
     <>
       <div className="relative overflow-hidden rounded-lg">
-        {/* Delete button background */}
-        <div
-          className="absolute inset-y-0 right-0 flex items-center justify-center bg-destructive"
-          style={{ width: deleteButtonWidth }}
-        >
-          <button
-            onClick={handleDeleteClick}
-            className="flex h-full w-full items-center justify-center text-destructive-foreground"
+        {/* Delete button background - only show if canDelete */}
+        {canDelete && (
+          <div
+            className="absolute inset-y-0 right-0 flex items-center justify-center bg-destructive"
+            style={{ width: deleteButtonWidth }}
           >
-            <Trash2 className="h-5 w-5" />
-          </button>
-        </div>
+            <button
+              onClick={handleDeleteClick}
+              className="flex h-full w-full items-center justify-center text-destructive-foreground"
+            >
+              <Trash2 className="h-5 w-5" />
+            </button>
+          </div>
+        )}
 
         {/* Card content */}
         <div

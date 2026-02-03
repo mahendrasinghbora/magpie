@@ -241,6 +241,7 @@ export function ExpensesPage() {
                       setSelectedExpense(expense)
                       setDetailSheetOpen(true)
                     }}
+                    canDelete={expense.userId === user?.id}
                   >
                     <Card className="cursor-pointer transition-colors hover:bg-muted/50">
                       <CardContent className="flex gap-3 p-3">
@@ -343,6 +344,7 @@ export function ExpensesPage() {
         category={selectedExpense ? categories.find((c) => c.id === selectedExpense.categoryId) : undefined}
         paymentMethod={selectedExpense?.paymentMethodId ? paymentMethods.find((p) => p.id === selectedExpense.paymentMethodId) : undefined}
         memberInfo={selectedExpense ? householdMembers.find((m) => m.id === selectedExpense.userId) : undefined}
+        currentUserId={user?.id}
       />
     </SwipeableContainer>
   )

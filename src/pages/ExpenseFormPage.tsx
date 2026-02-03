@@ -205,6 +205,13 @@ export function ExpenseFormPage() {
   // Set existing expense data and form values once expense is loaded
   useEffect(() => {
     if (existingExpense) {
+      // Check if user owns this expense - redirect if not
+      if (user && existingExpense.userId !== user.id) {
+        toast.error('You can only edit your own expenses')
+        navigate(-1)
+        return
+      }
+
       // Reset form with existing expense values
       reset({
         amount: existingExpense.amount,
@@ -234,7 +241,7 @@ export function ExpenseFormPage() {
       // Set current time for new expenses
       setTimeInput(format(new Date(), 'HH:mm'))
     }
-  }, [existingExpense, paymentMethods, reset, isEditing])
+  }, [existingExpense, paymentMethods, reset, isEditing, user, navigate])
 
   // Auto-select type based on category
   useEffect(() => {

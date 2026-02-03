@@ -103,11 +103,25 @@ export function ExpenseDetailSheet({
           {/* Payment Method */}
           {paymentMethod && (
             <div className="rounded-lg bg-muted/50 p-3">
-              <p className="font-medium">
-                {paymentMethod.name}
-                {paymentMethod.lastFourDigits && ` (****${paymentMethod.lastFourDigits})`}
-              </p>
-              <p className="text-sm text-muted-foreground">Payment Method</p>
+              <div className="flex items-center gap-2">
+                <span className={`inline-block px-2 py-1 rounded text-sm font-medium ${
+                  paymentMethod.type === 'credit_card'
+                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                    : paymentMethod.type === 'upi'
+                    ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+                    : paymentMethod.type === 'cash'
+                    ? 'bg-green-500/15 text-green-600 dark:text-green-400'
+                    : 'bg-teal-500/15 text-teal-600 dark:text-teal-400'
+                }`}>
+                  {paymentMethod.name}
+                </span>
+                {paymentMethod.lastFourDigits && (
+                  <span className="text-sm text-muted-foreground">
+                    ****{paymentMethod.lastFourDigits}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">Payment Method</p>
             </div>
           )}
 

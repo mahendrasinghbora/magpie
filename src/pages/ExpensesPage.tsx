@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react'
-import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { Search, Filter, ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { SwipeableContainer } from '@/components/SwipeableContainer'
 import { SwipeableExpenseCard } from '@/components/expense/SwipeableExpenseCard'
@@ -44,6 +46,30 @@ export function ExpensesPage() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
   const [detailSheetOpen, setDetailSheetOpen] = useState(false)
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false)
+
+  // Check if any filters are active
+  const hasActiveFilters = useMemo(() => {
+    return (
+      filters.categoryIds.length > 0 ||
+      filters.userIds.length > 0 ||
+      filters.paymentMethodIds.length > 0 ||
+      filters.tags.length > 0 ||
+      filters.type !== 'all'
+    )
+  }, [filters])
+
+  // Generate months for picker (current year and previous year)
+  const monthOptions = useMemo(() => {
+    const months = []
+    const currentYear = new Date().getFullYear()
+    for (let year = currentYear; year >= currentYear - 1; year--) {
+      for (let month = 11; month >= 0; month--) {
+        months.push(new Date(year, month, 1))
+      }
+    }
+    return months
+  }, [])
 
   // Navigate months
   const goToPreviousMonth = () => {
@@ -165,8 +191,11 @@ export function ExpensesPage() {
           <h1 className="text-xl font-bold">Expenses</h1>
           <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon">
+              <Button variant="outline" size="icon" className="relative">
                 <Filter className="h-4 w-4" />
+                {hasActiveFilters && (
+                  <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-primary" />
+                )}
               </Button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-[80vh]">
@@ -183,7 +212,38 @@ export function ExpensesPage() {
           <Button variant="ghost" size="icon" onClick={goToPreviousMonth}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <span className="font-medium">{formatMonth(currentMonth)}</span>
+          <Popover open={monthPickerOpen} onOpenChange={setMonthPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" className="gap-2 font-medium">
+                <CalendarDays className="h-4 w-4" />
+                {formatMonth(currentMonth)}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-48 p-0" align="center">
+              <ScrollArea className="h-64">
+                <div className="p-2">
+                  {monthOptions.map((date) => {
+                    const isSelected =
+                      date.getMonth() === currentMonth.getMonth() &&
+                      date.getFullYear() === currentMonth.getFullYear()
+                    return (
+                      <Button
+                        key={date.toISOString()}
+                        variant={isSelected ? 'default' : 'ghost'}
+                        className="w-full justify-start mb-1"
+                        onClick={() => {
+                          setCurrentMonth(date)
+                          setMonthPickerOpen(false)
+                        }}
+                      >
+                        {formatMonth(date)}
+                      </Button>
+                    )
+                  })}
+                </div>
+              </ScrollArea>
+            </PopoverContent>
+          </Popover>
           <Button variant="ghost" size="icon" onClick={goToNextMonth}>
             <ChevronRight className="h-5 w-5" />
           </Button>

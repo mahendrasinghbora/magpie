@@ -46,32 +46,29 @@ const DEFAULT_CATEGORIES = [
   { name: 'Bank Charges', icon: 'CreditCard', color: '#94a3b8', isCustom: false, isTransfer: false, order: 24 },
   { name: 'Others', icon: 'MoreHorizontal', color: '#71717a', isCustom: false, isTransfer: false, order: 25 },
   { name: 'Credit Card Payment', icon: 'Wallet', color: '#475569', isCustom: false, isTransfer: true, order: 26 },
+  { name: 'Savings', icon: 'PiggyBank', color: '#10b981', isCustom: false, isTransfer: true, order: 27 },
 ]
 
 const DEFAULT_TAGS = [
   // Food & Delivery
   { name: 'Swiggy', isCustom: false },
   { name: 'Zomato', isCustom: false },
-  { name: 'EatSure', isCustom: false },
   // Quick Commerce
   { name: 'Blinkit', isCustom: false },
   { name: 'Zepto', isCustom: false },
   { name: 'Instamart', isCustom: false },
   // Transport
   { name: 'Uber', isCustom: false },
-  { name: 'Ola', isCustom: false },
   { name: 'Rapido', isCustom: false },
   { name: 'Metro', isCustom: false },
   // Shopping
   { name: 'Amazon', isCustom: false },
   { name: 'Flipkart', isCustom: false },
   { name: 'Myntra', isCustom: false },
-  { name: 'Ajio', isCustom: false },
   // Payments
   { name: 'CRED', isCustom: false },
   { name: 'PhonePe', isCustom: false },
   { name: 'GPay', isCustom: false },
-  { name: 'Paytm', isCustom: false },
   // Entertainment
   { name: 'Netflix', isCustom: false },
   { name: 'Prime', isCustom: false },
@@ -81,8 +78,6 @@ const DEFAULT_TAGS = [
   { name: 'Online', isCustom: false },
   { name: 'Offline', isCustom: false },
   { name: 'Work', isCustom: false },
-  { name: 'Personal', isCustom: false },
-  { name: 'Reimbursable', isCustom: false },
 ]
 
 async function seed() {

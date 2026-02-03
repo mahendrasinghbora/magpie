@@ -13,6 +13,7 @@ import { formatAmount, formatMonth, getMonthKey } from '@/config/constants'
 import { getExpenses, getCategories, getPaymentMethods, getMonthlyIncome, getHouseholdMonthlyIncome, getHousehold, getHouseholdMembers } from '@/lib/firestore'
 import { CategoryPieChart } from '@/components/dashboard/CategoryPieChart'
 import { StatCard } from '@/components/dashboard/StatCard'
+import { AnimatedAmount } from '@/components/AnimatedAmount'
 import { UserComparison } from '@/components/dashboard/UserComparison'
 import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton'
 import type { MonthlyStats, CategoryStats, UserStats } from '@/types'
@@ -269,19 +270,17 @@ export function DashboardPage() {
           <CardContent className="space-y-3">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Income</span>
-              <span className="font-medium">{formatAmount(stats.totalIncome)}</span>
+              <AnimatedAmount value={stats.totalIncome} className="font-medium" />
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Spent</span>
-              <span className="font-medium text-destructive">
-                {formatAmount(stats.totalExpenses)}
-              </span>
+              <AnimatedAmount value={stats.totalExpenses} className="font-medium text-destructive" />
             </div>
             <div className="h-px bg-border" />
             <div className="flex justify-between">
               <span className="text-muted-foreground">Saved</span>
               <span className={`font-semibold ${stats.saved >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                {formatAmount(stats.saved)}
+                <AnimatedAmount value={stats.saved} />
                 {stats.totalIncome > 0 && (
                   <span className="ml-1 text-xs text-muted-foreground">
                     ({stats.savedPercentage.toFixed(1)}%)

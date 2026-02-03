@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -75,6 +75,7 @@ export function ExpenseFormPage() {
     setPaymentMethods,
     tags,
     setTags,
+    expenses,
     addExpense,
     updateExpense,
     removeExpense,
@@ -96,6 +97,36 @@ export function ExpenseFormPage() {
 
   const { recentIds: recentCategoryIds, addRecent: addRecentCategory } = useRecentItems('categories')
   const { recentIds: recentTagNames, addRecent: addRecentTag } = useRecentItems('tags')
+
+  // Sort categories by frequency of use
+  const sortedCategories = useMemo(() => {
+    const frequencyMap = new Map<string, number>()
+    expenses.forEach((expense) => {
+      const count = frequencyMap.get(expense.categoryId) || 0
+      frequencyMap.set(expense.categoryId, count + 1)
+    })
+    return [...categories].sort((a, b) => {
+      const freqA = frequencyMap.get(a.id) || 0
+      const freqB = frequencyMap.get(b.id) || 0
+      return freqB - freqA // Most used first
+    })
+  }, [categories, expenses])
+
+  // Sort tags by frequency of use
+  const sortedTags = useMemo(() => {
+    const frequencyMap = new Map<string, number>()
+    expenses.forEach((expense) => {
+      expense.tags?.forEach((tag) => {
+        const count = frequencyMap.get(tag) || 0
+        frequencyMap.set(tag, count + 1)
+      })
+    })
+    return [...tags].sort((a, b) => {
+      const freqA = frequencyMap.get(a.name) || 0
+      const freqB = frequencyMap.get(b.name) || 0
+      return freqB - freqA // Most used first
+    })
+  }, [tags, expenses])
 
   const isEditing = !!id
 
@@ -452,13 +483,13 @@ export function ExpenseFormPage() {
                   </div>
                 </div>
               )}
-              {/* All Categories */}
+              {/* All Categories (sorted by frequency) */}
               <div className="space-y-1.5">
                 {recentCategoryIds.length > 0 && !categorySearch && (
                   <p className="text-xs font-medium text-muted-foreground">All</p>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  {categories
+                  {sortedCategories
                     .filter((c) => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
                     .map((category) => {
                       const Icon = getIconComponent(category.icon)
@@ -637,13 +668,13 @@ export function ExpenseFormPage() {
                   </div>
                 </div>
               )}
-              {/* All Tags */}
+              {/* All Tags (sorted by frequency) */}
               <div className="space-y-1.5">
                 {recentTagNames.length > 0 && !tagSearch && (
                   <p className="text-xs font-medium text-muted-foreground">All</p>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  {tags
+                  {sortedTags
                     .filter((t) => !selectedTags.includes(t.name))
                     .filter((t) => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
                     .map((tag) => (

@@ -705,10 +705,12 @@ export function ExpenseFormPage() {
               {selectedTags.map((tag) => (
                 <Badge key={tag} variant="secondary" className="gap-1">
                   {tag}
-                  <X
-                    className="h-3 w-3 cursor-pointer"
+                  <span
+                    className="cursor-pointer"
                     onClick={() => toggleTag(tag)}
-                  />
+                  >
+                    <X className="h-3 w-3" />
+                  </span>
                 </Badge>
               ))}
             </div>

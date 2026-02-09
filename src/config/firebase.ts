@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth, GoogleAuthProvider } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
 
 // Firebase configuration - replace with your project's config
 const firebaseConfig = {
@@ -22,7 +22,9 @@ export const googleProvider = new GoogleAuthProvider()
 // Add Google Drive scope for backup functionality
 googleProvider.addScope('https://www.googleapis.com/auth/drive.file')
 
-// Initialize Firestore
-export const db = getFirestore(app)
+// Initialize Firestore with offline persistence
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+})
 
 export default app

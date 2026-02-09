@@ -66,40 +66,29 @@ export function DashboardPage() {
       // Get date range for current month
       const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
       const endDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0, 23, 59, 59)
-
-      // Load expenses
-      const expensesData = await getExpenses(user.id, user.householdId, startDate, endDate)
-      setExpenses(expensesData)
-
-      // Load categories if not already loaded
-      if (categories.length === 0) {
-        const categoriesData = await getCategories(user.householdId)
-        setCategories(categoriesData)
-      }
-
-      // Load payment methods if not already loaded
-      if (paymentMethods.length === 0) {
-        const paymentMethodsData = await getPaymentMethods(user.id)
-        setPaymentMethods(paymentMethodsData)
-      }
-
-      // Load monthly income
       const monthKey = getMonthKey(currentMonth)
-      const incomeData = await getMonthlyIncome(user.id, monthKey)
-      setMonthlyIncome(incomeData)
 
-      // Load household and members if in household
+      // Fire all independent queries in parallel
+      const [expensesData, categoriesData, paymentMethodsData, incomeData, householdData, membersData] = await Promise.all([
+        getExpenses(user.id, user.householdId, startDate, endDate),
+        categories.length === 0 ? getCategories(user.householdId) : Promise.resolve(null),
+        paymentMethods.length === 0 ? getPaymentMethods(user.id) : Promise.resolve(null),
+        getMonthlyIncome(user.id, monthKey),
+        user.householdId && !household ? getHousehold(user.householdId) : Promise.resolve(null),
+        user.householdId && householdMembers.length === 0 ? getHouseholdMembers(user.householdId) : Promise.resolve(null),
+      ])
+
+      setExpenses(expensesData)
+      if (categoriesData) setCategories(categoriesData)
+      if (paymentMethodsData) setPaymentMethods(paymentMethodsData)
+      setMonthlyIncome(incomeData)
+      if (householdData) setHousehold(householdData)
+
+      const members = membersData ?? householdMembers
+      if (membersData) setHouseholdMembers(membersData)
+
+      // Household income depends on member IDs, so it runs after the first batch
       if (user.householdId) {
-        let members = householdMembers
-        if (!household) {
-          const householdData = await getHousehold(user.householdId)
-          setHousehold(householdData)
-        }
-        if (householdMembers.length === 0) {
-          members = await getHouseholdMembers(user.householdId)
-          setHouseholdMembers(members)
-        }
-        // Load total household income
         const memberIds = members.map((m) => m.id)
         const totalIncome = await getHouseholdMonthlyIncome(memberIds, monthKey)
         setHouseholdTotalIncome(totalIncome)
@@ -109,7 +98,7 @@ export function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [user, currentMonth, categories.length, paymentMethods.length, household, householdMembers.length, setExpenses, setCategories, setPaymentMethods, setMonthlyIncome, setHousehold, setHouseholdMembers])
+  }, [user, currentMonth, categories.length, paymentMethods.length, household, householdMembers, setExpenses, setCategories, setPaymentMethods, setMonthlyIncome, setHousehold, setHouseholdMembers])
 
   // Initial load and on month change
   useEffect(() => {

@@ -120,29 +120,37 @@ export async function getCategories(householdId: string | null): Promise<Categor
     orderBy('order')
   )
 
-  const defaultSnapshot = await getDocs(defaultQuery)
-  const categories = defaultSnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Category[]
-
-  // If user has a household, also get household-specific categories
+  // If user has a household, fire both queries in parallel
   if (householdId) {
     const householdQuery = query(
       collection(db, 'categories'),
       where('householdId', '==', householdId),
       orderBy('order')
     )
-    const householdSnapshot = await getDocs(householdQuery)
+    const [defaultSnapshot, householdSnapshot] = await Promise.all([
+      getDocs(defaultQuery),
+      getDocs(householdQuery),
+    ])
+
+    const categories = defaultSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Category[]
+
     const householdCategories = householdSnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Category[]
 
     categories.push(...householdCategories)
+    return categories
   }
 
-  return categories
+  const defaultSnapshot = await getDocs(defaultQuery)
+  return defaultSnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Category[]
 }
 
 export async function createCategory(
@@ -218,27 +226,36 @@ export async function getTags(householdId: string | null): Promise<Tag[]> {
     where('householdId', '==', null)
   )
 
-  const defaultSnapshot = await getDocs(defaultQuery)
-  const tags = defaultSnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as Tag[]
-
+  // If user has a household, fire both queries in parallel
   if (householdId) {
     const householdQuery = query(
       collection(db, 'tags'),
       where('householdId', '==', householdId)
     )
-    const householdSnapshot = await getDocs(householdQuery)
+    const [defaultSnapshot, householdSnapshot] = await Promise.all([
+      getDocs(defaultQuery),
+      getDocs(householdQuery),
+    ])
+
+    const tags = defaultSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as Tag[]
+
     const householdTags = householdSnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     })) as Tag[]
 
     tags.push(...householdTags)
+    return tags
   }
 
-  return tags
+  const defaultSnapshot = await getDocs(defaultQuery)
+  return defaultSnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Tag[]
 }
 
 export async function createTag(tag: Omit<Tag, 'id'>): Promise<string> {

@@ -4,6 +4,7 @@ import { ArrowLeft, Plus, Trash2, Star } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
@@ -98,8 +99,10 @@ export function PaymentMethodsPage() {
 
       setDialogOpen(false)
       reset()
+      toast.success('Payment method added')
     } catch (error) {
       console.error('Error creating payment method:', error)
+      toast.error('Failed to add payment method')
     } finally {
       setLoading(false)
     }
@@ -109,8 +112,10 @@ export function PaymentMethodsPage() {
     try {
       await deletePaymentMethod(id)
       setPaymentMethods(paymentMethods.filter((pm) => pm.id !== id))
+      toast.success('Payment method deleted')
     } catch (error) {
       console.error('Error deleting payment method:', error)
+      toast.error('Failed to delete payment method')
     }
   }
 
@@ -131,8 +136,10 @@ export function PaymentMethodsPage() {
           isDefault: pm.id === id,
         }))
       )
+      toast.success('Default payment method updated')
     } catch (error) {
       console.error('Error setting default:', error)
+      toast.error('Failed to set default payment method')
     }
   }
 

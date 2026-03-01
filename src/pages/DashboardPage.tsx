@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Receipt } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
@@ -95,6 +96,7 @@ export function DashboardPage() {
       }
     } catch (error) {
       console.error('Error loading data:', error)
+      toast.error('Failed to load dashboard data')
     } finally {
       setLoading(false)
     }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, UserPlus, LogOut, Check, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
@@ -130,6 +131,7 @@ export function HouseholdPage() {
         }
       } catch (error) {
         console.error('Error loading household data:', error)
+        toast.error('Failed to load household data')
       }
     }
 
@@ -159,8 +161,10 @@ export function HouseholdPage() {
       ])
       setCreateDialogOpen(false)
       setHouseholdName('')
+      toast.success('Household created')
     } catch (error) {
       console.error('Error creating household:', error)
+      toast.error('Failed to create household')
     } finally {
       setLoading(false)
     }
@@ -180,8 +184,10 @@ export function HouseholdPage() {
       )
       setInviteDialogOpen(false)
       setInviteEmail('')
+      toast.success('Invite sent')
     } catch (error) {
       console.error('Error sending invite:', error)
+      toast.error('Failed to send invite')
     } finally {
       setLoading(false)
     }
@@ -204,8 +210,10 @@ export function HouseholdPage() {
 
       const members = await getHouseholdMembers(invite.householdId)
       setHouseholdMembers(members)
+      toast.success('Invite accepted')
     } catch (error) {
       console.error('Error accepting invite:', error)
+      toast.error('Failed to accept invite')
     } finally {
       setLoading(false)
     }
@@ -216,8 +224,10 @@ export function HouseholdPage() {
     try {
       await rejectInvite(inviteId)
       setPendingInvites((prev) => prev.filter((i) => i.id !== inviteId))
+      toast.success('Invite declined')
     } catch (error) {
       console.error('Error rejecting invite:', error)
+      toast.error('Failed to decline invite')
     } finally {
       setLoading(false)
     }
@@ -233,8 +243,10 @@ export function HouseholdPage() {
       setHousehold(null)
       setHouseholdMembers([])
       setLeaveDialogOpen(false)
+      toast.success('Left household')
     } catch (error) {
       console.error('Error leaving household:', error)
+      toast.error('Failed to leave household')
     } finally {
       setLoading(false)
     }

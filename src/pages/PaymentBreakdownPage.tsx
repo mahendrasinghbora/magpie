@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ChevronLeft, ChevronRight, CreditCard, Banknote, Smartphone, Building2, Wallet } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
 import { Button } from '@/components/ui/button'
@@ -108,6 +109,7 @@ export function PaymentBreakdownPage() {
         }
       } catch (error) {
         console.error('Error loading data:', error)
+        toast.error('Failed to load payment data')
       } finally {
         setLoading(false)
       }

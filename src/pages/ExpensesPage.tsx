@@ -106,6 +106,7 @@ export function ExpensesPage() {
       }
     } catch (error) {
       console.error('Error loading expenses:', error)
+      toast.error('Failed to load expenses')
     } finally {
       setLoading(false)
     }

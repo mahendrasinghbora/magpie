@@ -33,3 +33,7 @@ scratch.md
 *.njsproj
 *.sln
 *.sw?
+
+# AI agent files
+CLAUDE.md
+AGENTS.md

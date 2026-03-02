@@ -3,8 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { ArrowLeft, Calendar as CalendarIcon, Clock, Trash2, X, Search, Plus } from 'lucide-react'
-import { format } from 'date-fns'
+import { ArrowLeft, Calendar as CalendarIcon, ChevronDown, Clock, Trash2, X, Search, Plus } from 'lucide-react'
+import { format, isToday } from 'date-fns'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { useRecentItems } from '@/hooks/useRecentItems'
@@ -34,6 +34,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible'
+import { SummaryChips } from '@/components/expense/SummaryChips'
 import { cn } from '@/lib/utils'
 import { CURRENCY, PAYMENT_METHOD_TYPES } from '@/config/constants'
 import {
@@ -95,6 +97,10 @@ export function ExpenseFormPage() {
   const [existingExpense, setExistingExpense] = useState<Expense | null>(null)
   const [categorySearch, setCategorySearch] = useState('')
   const [tagSearch, setTagSearch] = useState('')
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [showAllCategories, setShowAllCategories] = useState(false)
+  const [showAllTags, setShowAllTags] = useState(false)
+  const pendingScrollTarget = useRef<string | null>(null)
   const paymentMethodInitialized = useRef(false)
 
   const { recentIds: recentCategoryIds, addRecent: addRecentCategory } = useRecentItems('categories')
@@ -130,6 +136,48 @@ export function ExpenseFormPage() {
     })
   }, [tags, expenses])
 
+  const TOP_COMPACT_COUNT = 6
+
+  // Top N categories for compact view: recent first, then fill by frequency
+  const topCategoryIds = useMemo(() => {
+    const ids: string[] = []
+    // Recent first (only those that still exist)
+    for (const id of recentCategoryIds) {
+      if (ids.length >= TOP_COMPACT_COUNT) break
+      if (categories.some((c) => c.id === id)) {
+        ids.push(id)
+      }
+    }
+    // Fill remaining slots by frequency
+    for (const cat of sortedCategories) {
+      if (ids.length >= TOP_COMPACT_COUNT) break
+      if (!ids.includes(cat.id)) {
+        ids.push(cat.id)
+      }
+    }
+    return ids
+  }, [recentCategoryIds, sortedCategories, categories])
+
+  // Top N tag names for compact view: recent first, then fill by frequency
+  const topTagNames = useMemo(() => {
+    const names: string[] = []
+    // Recent first (only those that still exist)
+    for (const name of recentTagNames) {
+      if (names.length >= TOP_COMPACT_COUNT) break
+      if (tags.some((t) => t.name === name)) {
+        names.push(name)
+      }
+    }
+    // Fill remaining slots by frequency
+    for (const tag of sortedTags) {
+      if (names.length >= TOP_COMPACT_COUNT) break
+      if (!names.includes(tag.name)) {
+        names.push(tag.name)
+      }
+    }
+    return names
+  }, [recentTagNames, sortedTags, tags])
+
   const isEditing = !!id
 
   const {
@@ -141,6 +189,7 @@ export function ExpenseFormPage() {
     formState: { errors },
   } = useForm<ExpenseFormData>({
     resolver: zodResolver(expenseSchema),
+    shouldUnregister: false,
     defaultValues: {
       amount: 0,
       categoryId: '',
@@ -154,6 +203,16 @@ export function ExpenseFormPage() {
 
   const selectedCategoryId = watch('categoryId')
   const selectedDate = watch('date')
+  const watchedPayee = watch('payee')
+  const watchedNotes = watch('notes')
+
+  // Derive payment method name for summary chips
+  const selectedPaymentMethodName = useMemo(() => {
+    if (!selectedPaymentMethodId) return undefined
+    const pm = paymentMethods.find((p) => p.id === selectedPaymentMethodId)
+    if (!pm) return undefined
+    return pm.lastFourDigits ? `${pm.name} (${pm.lastFourDigits})` : pm.name
+  }, [selectedPaymentMethodId, paymentMethods])
 
   // Load data
   useEffect(() => {
@@ -239,6 +298,17 @@ export function ExpenseFormPage() {
           setSelectedPaymentMethodId(existingExpense.paymentMethodId)
         }
       }
+
+      // Auto-open details if optional fields are filled
+      const hasOptionalData =
+        !isToday(existingExpense.date) ||
+        existingExpense.paymentMethodId ||
+        existingExpense.payee ||
+        (existingExpense.tags && existingExpense.tags.length > 0) ||
+        existingExpense.notes
+      if (hasOptionalData) {
+        setIsDetailsOpen(true)
+      }
     } else if (!isEditing) {
       // Set current time for new expenses
       setTimeInput(format(new Date(), 'HH:mm'))
@@ -254,6 +324,23 @@ export function ExpenseFormPage() {
       }
     }
   }, [selectedCategoryId, categories, setValue])
+
+  // Scroll to field when collapsible opens from chip tap
+  useEffect(() => {
+    if (isDetailsOpen && pendingScrollTarget.current) {
+      const target = pendingScrollTarget.current
+      pendingScrollTarget.current = null
+      const timer = setTimeout(() => {
+        document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 220)
+      return () => clearTimeout(timer)
+    }
+  }, [isDetailsOpen])
+
+  const handleChipClick = (fieldId: string) => {
+    pendingScrollTarget.current = fieldId
+    setIsDetailsOpen(true)
+  }
 
   const handleAmountChange = (value: string) => {
     // Allow numbers and one decimal point
@@ -499,309 +586,448 @@ export function ExpenseFormPage() {
           )}
         </div>
 
-        {/* Category Selection */}
+        {/* Category Selection — Compact Grid */}
         <div className="space-y-2">
           <Label>Category</Label>
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search categories..."
-              value={categorySearch}
-              onChange={(e) => setCategorySearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-          <ScrollArea className="h-36">
-            <div className="space-y-3">
-              {/* Recent Categories */}
-              {recentCategoryIds.length > 0 && !categorySearch && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground">Recent</p>
-                  <div className="flex flex-wrap gap-2">
-                    {recentCategoryIds
-                      .map((id) => categories.find((c) => c.id === id))
-                      .filter(Boolean)
-                      .map((category) => {
-                        if (!category) return null
-                        const Icon = getIconComponent(category.icon)
-                        const isSelected = selectedCategoryId === category.id
-                        return (
-                          <Button
-                            key={`recent-${category.id}`}
-                            type="button"
-                            variant={isSelected ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setValue('categoryId', category.id)}
-                            className={cn('gap-1.5', isSelected && 'ring-2 ring-primary')}
-                          >
-                            <Icon
-                              className="h-4 w-4"
-                              style={{ color: isSelected ? undefined : category.color }}
-                            />
-                            {category.name}
-                          </Button>
-                        )
-                      })}
+          {showAllCategories || categorySearch ? (
+            <>
+              {/* Expanded: search + Recent/All (original behavior) */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search categories..."
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <ScrollArea className="h-36">
+                <div className="space-y-3">
+                  {/* Recent Categories */}
+                  {recentCategoryIds.length > 0 && !categorySearch && (
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">Recent</p>
+                      <div className="flex flex-wrap gap-2">
+                        {recentCategoryIds
+                          .map((id) => categories.find((c) => c.id === id))
+                          .filter(Boolean)
+                          .map((category) => {
+                            if (!category) return null
+                            const Icon = getIconComponent(category.icon)
+                            const isSelected = selectedCategoryId === category.id
+                            return (
+                              <Button
+                                key={`recent-${category.id}`}
+                                type="button"
+                                variant={isSelected ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setValue('categoryId', category.id)}
+                                className={cn('gap-1.5', isSelected && 'ring-2 ring-primary')}
+                              >
+                                <Icon
+                                  className="h-4 w-4"
+                                  style={{ color: isSelected ? undefined : category.color }}
+                                />
+                                {category.name}
+                              </Button>
+                            )
+                          })}
+                      </div>
+                    </div>
+                  )}
+                  {/* All Categories (sorted by frequency) */}
+                  <div className="space-y-1.5">
+                    {recentCategoryIds.length > 0 && !categorySearch && (
+                      <p className="text-xs font-medium text-muted-foreground">All</p>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {sortedCategories
+                        .filter((c) => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
+                        .map((category) => {
+                          const Icon = getIconComponent(category.icon)
+                          const isSelected = selectedCategoryId === category.id
+                          return (
+                            <Button
+                              key={category.id}
+                              type="button"
+                              variant={isSelected ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => setValue('categoryId', category.id)}
+                              className={cn('gap-1.5', isSelected && 'ring-2 ring-primary')}
+                            >
+                              <Icon
+                                className="h-4 w-4"
+                                style={{ color: isSelected ? undefined : category.color }}
+                              />
+                              {category.name}
+                            </Button>
+                          )
+                        })}
+                      {/* Create new category option */}
+                      {categorySearch.trim() && !categories.some(
+                        (c) => c.name.toLowerCase() === categorySearch.toLowerCase()
+                      ) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCreateCategory(categorySearch)}
+                          disabled={creatingCategory}
+                          className="gap-1.5 border-dashed"
+                        >
+                          <Plus className="h-4 w-4" />
+                          {creatingCategory ? 'Creating...' : `Create "${categorySearch.trim()}"`}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
+              </ScrollArea>
+              {!categorySearch && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAllCategories(false)}
+                  className="text-xs text-muted-foreground"
+                >
+                  Show less
+                </Button>
               )}
-              {/* All Categories (sorted by frequency) */}
-              <div className="space-y-1.5">
-                {recentCategoryIds.length > 0 && !categorySearch && (
-                  <p className="text-xs font-medium text-muted-foreground">All</p>
+            </>
+          ) : (
+            <>
+              {/* Compact: top 6 frequency-sorted + "More..." */}
+              <div className="flex flex-wrap gap-2">
+                {sortedCategories
+                  .filter((c) => {
+                    // Always show selected category even if not in top 6
+                    if (c.id === selectedCategoryId) return true
+                    return topCategoryIds.includes(c.id)
+                  })
+                  .slice(0, TOP_COMPACT_COUNT + (selectedCategoryId && !topCategoryIds.includes(selectedCategoryId) ? 1 : 0))
+                  .map((category) => {
+                    const Icon = getIconComponent(category.icon)
+                    const isSelected = selectedCategoryId === category.id
+                    return (
+                      <Button
+                        key={category.id}
+                        type="button"
+                        variant={isSelected ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setValue('categoryId', category.id)}
+                        className={cn('gap-1.5', isSelected && 'ring-2 ring-primary')}
+                      >
+                        <Icon
+                          className="h-4 w-4"
+                          style={{ color: isSelected ? undefined : category.color }}
+                        />
+                        {category.name}
+                      </Button>
+                    )
+                  })}
+                {sortedCategories.length > TOP_COMPACT_COUNT && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAllCategories(true)}
+                    className="text-xs text-muted-foreground"
+                  >
+                    More...
+                  </Button>
                 )}
-                <div className="flex flex-wrap gap-2">
-                  {sortedCategories
-                    .filter((c) => c.name.toLowerCase().includes(categorySearch.toLowerCase()))
-                    .map((category) => {
-                      const Icon = getIconComponent(category.icon)
-                      const isSelected = selectedCategoryId === category.id
-                      return (
-                        <Button
-                          key={category.id}
-                          type="button"
-                          variant={isSelected ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setValue('categoryId', category.id)}
-                          className={cn('gap-1.5', isSelected && 'ring-2 ring-primary')}
-                        >
-                          <Icon
-                            className="h-4 w-4"
-                            style={{ color: isSelected ? undefined : category.color }}
-                          />
-                          {category.name}
-                        </Button>
-                      )
-                    })}
-                  {/* Create new category option */}
-                  {categorySearch.trim() && !categories.some(
-                    (c) => c.name.toLowerCase() === categorySearch.toLowerCase()
-                  ) && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleCreateCategory(categorySearch)}
-                      disabled={creatingCategory}
-                      className="gap-1.5 border-dashed"
-                    >
-                      <Plus className="h-4 w-4" />
-                      {creatingCategory ? 'Creating...' : `Create "${categorySearch.trim()}"`}
-                    </Button>
-                  )}
-                </div>
               </div>
-            </div>
-          </ScrollArea>
+            </>
+          )}
           {errors.categoryId && (
             <p className="text-sm text-destructive">{errors.categoryId.message}</p>
           )}
         </div>
 
-        {/* Date and Time Picker */}
-        <div className="space-y-2">
-          <Label>Date & Time</Label>
-          <div className="flex gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="flex-1 justify-start">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(date) => date && setValue('date', date)}
-                  initialFocus
+        {/* More Details — Collapsible optional fields */}
+        <Collapsible open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+          <div className="space-y-2 border-t pt-4">
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex h-11 w-full items-center justify-between rounded-md px-2 text-sm font-medium text-muted-foreground hover:bg-muted/50"
+              >
+                More details
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 transition-transform duration-200',
+                    isDetailsOpen && 'rotate-180'
+                  )}
                 />
-              </PopoverContent>
-            </Popover>
-            <div className="relative">
-              <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="time"
-                value={timeInput}
-                onChange={(e) => setTimeInput(e.target.value)}
-                className="w-[150px] pl-10"
-              />
-            </div>
-          </div>
-        </div>
+              </button>
+            </CollapsibleTrigger>
 
-        {/* Payment Method - Two-step selection */}
-        {paymentMethods.length > 0 && (
-          <div className="space-y-2">
-            <Label>Payment Method (Optional)</Label>
-            <div className="flex gap-2">
-              {/* Step 1: Select payment type */}
-              <Select
-                value={selectedPaymentType}
-                onValueChange={(v) => handlePaymentTypeChange(v as PaymentMethodType | '')}
-              >
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAYMENT_METHOD_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Step 2: Select specific method */}
-              <Select
-                value={selectedPaymentMethodId}
-                onValueChange={(v) => {
-                  // Ignore empty value if we've already initialized from existing expense
-                  if (v === '' && paymentMethodInitialized.current) {
-                    return
-                  }
-                  setSelectedPaymentMethodId(v)
-                }}
-                disabled={!selectedPaymentType || filteredPaymentMethods.length === 0}
-              >
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder={selectedPaymentType ? 'Select' : 'Select type first'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredPaymentMethods.map((pm) => (
-                    <SelectItem key={pm.id} value={pm.id}>
-                      {pm.name}
-                      {pm.lastFourDigits && ` (${pm.lastFourDigits})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {selectedPaymentType && filteredPaymentMethods.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No {PAYMENT_METHOD_TYPES.find((t) => t.value === selectedPaymentType)?.label} payment methods added yet.
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Payee */}
-        <div className="space-y-2">
-          <Label>Payee (Optional)</Label>
-          <Input
-            {...register('payee')}
-            placeholder="Who did you pay?"
-          />
-        </div>
-
-        {/* Tags */}
-        <div className="space-y-2">
-          <Label>Tags (Optional)</Label>
-          {/* Selected Tags */}
-          {selectedTags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {selectedTags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="gap-1">
-                  {tag}
-                  <span
-                    className="cursor-pointer"
-                    onClick={() => toggleTag(tag)}
-                  >
-                    <X className="h-3 w-3" />
-                  </span>
-                </Badge>
-              ))}
-            </div>
-          )}
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search tags..."
-              value={tagSearch}
-              onChange={(e) => setTagSearch(e.target.value)}
-              className="pl-9"
+            <SummaryChips
+              date={selectedDate}
+              paymentMethodName={selectedPaymentMethodName}
+              selectedTags={selectedTags}
+              payee={watchedPayee}
+              notes={watchedNotes}
+              isOpen={isDetailsOpen}
+              onChipClick={handleChipClick}
             />
-          </div>
-          <ScrollArea className="h-28">
-            <div className="space-y-3">
-              {/* Recent Tags */}
-              {recentTagNames.length > 0 && !tagSearch && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground">Recent</p>
-                  <div className="flex flex-wrap gap-2">
-                    {recentTagNames
-                      .filter((name) => !selectedTags.includes(name))
-                      .filter((name) => tags.some((t) => t.name === name))
-                      .map((tagName) => (
-                        <Button
-                          key={`recent-${tagName}`}
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleTag(tagName)}
-                        >
-                          {tagName}
+
+            <CollapsibleContent>
+              <div className="space-y-6 pt-2">
+                {/* Date and Time Picker */}
+                <div id="field-date-time" className="space-y-2">
+                  <Label>Date & Time</Label>
+                  <div className="flex gap-2">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="flex-1 justify-start">
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
                         </Button>
-                      ))}
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={(date) => date && setValue('date', date)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <div className="relative">
+                      <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        type="time"
+                        value={timeInput}
+                        onChange={(e) => setTimeInput(e.target.value)}
+                        className="w-[150px] pl-10"
+                      />
+                    </div>
                   </div>
                 </div>
-              )}
-              {/* All Tags (sorted by frequency) */}
-              <div className="space-y-1.5">
-                {recentTagNames.length > 0 && !tagSearch && (
-                  <p className="text-xs font-medium text-muted-foreground">All</p>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  {sortedTags
-                    .filter((t) => !selectedTags.includes(t.name))
-                    .filter((t) => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
-                    .map((tag) => (
-                      <Button
-                        key={tag.id}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => toggleTag(tag.name)}
+
+                {/* Payment Method - Two-step selection */}
+                {paymentMethods.length > 0 && (
+                  <div id="field-payment-method" className="space-y-2">
+                    <Label>Payment Method (Optional)</Label>
+                    <div className="flex gap-2">
+                      {/* Step 1: Select payment type */}
+                      <Select
+                        value={selectedPaymentType}
+                        onValueChange={(v) => handlePaymentTypeChange(v as PaymentMethodType | '')}
                       >
-                        {tag.name}
-                      </Button>
-                    ))}
-                  {/* Create new tag option */}
-                  {tagSearch.trim() && !tags.some(
-                    (t) => t.name.toLowerCase() === tagSearch.toLowerCase()
-                  ) && !selectedTags.some(
-                    (t) => t.toLowerCase() === tagSearch.toLowerCase()
-                  ) && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleCreateTag(tagSearch)}
-                      disabled={creatingTag}
-                      className="gap-1.5 border-dashed"
-                    >
-                      <Plus className="h-4 w-4" />
-                      {creatingTag ? 'Creating...' : `Create "${tagSearch.trim()}"`}
-                    </Button>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PAYMENT_METHOD_TYPES.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {/* Step 2: Select specific method */}
+                      <Select
+                        value={selectedPaymentMethodId}
+                        onValueChange={(v) => {
+                          // Ignore empty value if we've already initialized from existing expense
+                          if (v === '' && paymentMethodInitialized.current) {
+                            return
+                          }
+                          setSelectedPaymentMethodId(v)
+                        }}
+                        disabled={!selectedPaymentType || filteredPaymentMethods.length === 0}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder={selectedPaymentType ? 'Select' : 'Select type first'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filteredPaymentMethods.map((pm) => (
+                            <SelectItem key={pm.id} value={pm.id}>
+                              {pm.name}
+                              {pm.lastFourDigits && ` (${pm.lastFourDigits})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {selectedPaymentType && filteredPaymentMethods.length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        No {PAYMENT_METHOD_TYPES.find((t) => t.value === selectedPaymentType)?.label} payment methods added yet.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Payee */}
+                <div id="field-payee" className="space-y-2">
+                  <Label>Payee (Optional)</Label>
+                  <Input
+                    {...register('payee')}
+                    placeholder="Who did you pay?"
+                  />
+                </div>
+
+                {/* Tags */}
+                <div id="field-tags" className="space-y-2">
+                  <Label>Tags (Optional)</Label>
+                  {/* Selected Tags */}
+                  {selectedTags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTags.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="gap-1">
+                          {tag}
+                          <span
+                            className="cursor-pointer"
+                            onClick={() => toggleTag(tag)}
+                          >
+                            <X className="h-3 w-3" />
+                          </span>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {showAllTags || tagSearch ? (
+                    <>
+                      {/* Expanded: search + Recent/All */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          type="text"
+                          placeholder="Search tags..."
+                          value={tagSearch}
+                          onChange={(e) => setTagSearch(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                      <ScrollArea className="h-28">
+                        <div className="space-y-3">
+                          {/* Recent Tags */}
+                          {recentTagNames.length > 0 && !tagSearch && (
+                            <div className="space-y-1.5">
+                              <p className="text-xs font-medium text-muted-foreground">Recent</p>
+                              <div className="flex flex-wrap gap-2">
+                                {recentTagNames
+                                  .filter((name) => !selectedTags.includes(name))
+                                  .filter((name) => tags.some((t) => t.name === name))
+                                  .map((tagName) => (
+                                    <Button
+                                      key={`recent-${tagName}`}
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => toggleTag(tagName)}
+                                    >
+                                      {tagName}
+                                    </Button>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                          {/* All Tags (sorted by frequency) */}
+                          <div className="space-y-1.5">
+                            {recentTagNames.length > 0 && !tagSearch && (
+                              <p className="text-xs font-medium text-muted-foreground">All</p>
+                            )}
+                            <div className="flex flex-wrap gap-2">
+                              {sortedTags
+                                .filter((t) => !selectedTags.includes(t.name))
+                                .filter((t) => t.name.toLowerCase().includes(tagSearch.toLowerCase()))
+                                .map((tag) => (
+                                  <Button
+                                    key={tag.id}
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => toggleTag(tag.name)}
+                                  >
+                                    {tag.name}
+                                  </Button>
+                                ))}
+                              {/* Create new tag option */}
+                              {tagSearch.trim() && !tags.some(
+                                (t) => t.name.toLowerCase() === tagSearch.toLowerCase()
+                              ) && !selectedTags.some(
+                                (t) => t.toLowerCase() === tagSearch.toLowerCase()
+                              ) && (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleCreateTag(tagSearch)}
+                                  disabled={creatingTag}
+                                  className="gap-1.5 border-dashed"
+                                >
+                                  <Plus className="h-4 w-4" />
+                                  {creatingTag ? 'Creating...' : `Create "${tagSearch.trim()}"`}
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </ScrollArea>
+                      {!tagSearch && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowAllTags(false)}
+                          className="text-xs text-muted-foreground"
+                        >
+                          Show less
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {/* Compact: top 6 frequency-sorted + "More..." */}
+                      <div className="flex flex-wrap gap-2">
+                        {sortedTags
+                          .filter((t) => !selectedTags.includes(t.name))
+                          .filter((t) => topTagNames.includes(t.name))
+                          .map((tag) => (
+                            <Button
+                              key={tag.id}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => toggleTag(tag.name)}
+                            >
+                              {tag.name}
+                            </Button>
+                          ))}
+                        {sortedTags.filter((t) => !selectedTags.includes(t.name)).length > TOP_COMPACT_COUNT && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowAllTags(true)}
+                            className="text-xs text-muted-foreground"
+                          >
+                            More...
+                          </Button>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
-              </div>
-            </div>
-          </ScrollArea>
-        </div>
 
-        {/* Notes */}
-        <div className="space-y-2">
-          <Label>Notes (Optional)</Label>
-          <Input
-            {...register('notes')}
-            placeholder="Add a note..."
-          />
-        </div>
+                {/* Notes */}
+                <div id="field-notes" className="space-y-2">
+                  <Label>Notes (Optional)</Label>
+                  <Input
+                    {...register('notes')}
+                    placeholder="Add a note..."
+                  />
+                </div>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
 
         {/* Transaction Type */}
         {user?.householdId && (

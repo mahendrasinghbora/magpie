@@ -487,41 +487,13 @@ export function ExpenseFormPage() {
           await addHouseholdIncomeToRecipient(data.toUserId, monthKey, data.amount)
         }
 
-        // Save to recent items before potential reset
-        addRecentCategory(data.categoryId)
-        selectedTags.forEach((tag) => addRecentTag(tag))
-
         toast.success('Expense added', {
           action: {
             label: 'Add another',
-            onClick: () => {
-              // Don't navigate — already on form page
-            },
+            onClick: () => navigate('/expense/new'),
           },
           duration: 3000,
         })
-
-        // Reset form for another entry
-        reset({
-          amount: 0,
-          categoryId: '',
-          paymentMethodId: '',
-          payee: '',
-          notes: '',
-          date: new Date(),
-          type: 'expense',
-        })
-        setAmountInput('')
-        setSelectedTags([])
-        setTimeInput(format(new Date(), 'HH:mm'))
-        setSelectedPaymentMethodId('')
-        setIsDetailsOpen(false)
-        setShowAllCategories(false)
-        setShowAllTags(false)
-        setCategorySearch('')
-        setTagSearch('')
-        setLoading(false)
-        return
       }
 
       // Save to recent items

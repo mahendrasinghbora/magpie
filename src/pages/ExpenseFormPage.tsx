@@ -19,7 +19,9 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -53,7 +55,6 @@ import {
 import { getMonthKey } from '@/config/constants'
 import type { Expense } from '@/types'
 import { getIconComponent } from '@/lib/icons'
-import type { PaymentMethodType } from '@/types'
 
 const expenseSchema = z.object({
   amount: z.number().min(1, 'Amount is required'),
@@ -92,7 +93,6 @@ export function ExpenseFormPage() {
   const [initialLoading, setInitialLoading] = useState(true)
   const [amountInput, setAmountInput] = useState('')
   const [timeInput, setTimeInput] = useState('')
-  const [selectedPaymentType, setSelectedPaymentType] = useState<PaymentMethodType | ''>('')
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState<string>('')
   const [existingExpense, setExistingExpense] = useState<Expense | null>(null)
   const [categorySearch, setCategorySearch] = useState('')
@@ -201,10 +201,7 @@ export function ExpenseFormPage() {
     },
   })
 
-  const selectedCategoryId = watch('categoryId')
-  const selectedDate = watch('date')
-  const watchedPayee = watch('payee')
-  const watchedNotes = watch('notes')
+  const [selectedCategoryId, selectedDate, watchedPayee, watchedNotes, watchedType, watchedToUserId] = watch(['categoryId', 'date', 'payee', 'notes', 'type', 'toUserId'])
 
   // Derive payment method name for summary chips
   const selectedPaymentMethodName = useMemo(() => {
@@ -230,10 +227,11 @@ export function ExpenseFormPage() {
           )
         }
 
-        // Always load payment methods fresh to ensure we have the latest
-        promises.push(
-          getPaymentMethods(user.id).then((data) => setPaymentMethods(data))
-        )
+        if (paymentMethods.length === 0) {
+          promises.push(
+            getPaymentMethods(user.id).then((data) => setPaymentMethods(data))
+          )
+        }
 
         if (tags.length === 0) {
           promises.push(
@@ -291,12 +289,8 @@ export function ExpenseFormPage() {
 
       // Set payment method state (only once)
       if (existingExpense.paymentMethodId && paymentMethods.length > 0 && !paymentMethodInitialized.current) {
-        const pm = paymentMethods.find((p) => p.id === existingExpense.paymentMethodId)
-        if (pm) {
-          paymentMethodInitialized.current = true
-          setSelectedPaymentType(pm.type)
-          setSelectedPaymentMethodId(existingExpense.paymentMethodId)
-        }
+        paymentMethodInitialized.current = true
+        setSelectedPaymentMethodId(existingExpense.paymentMethodId)
       }
 
       // Auto-open details if optional fields are filled
@@ -437,20 +431,16 @@ export function ExpenseFormPage() {
     return result
   }
 
-  // Filter payment methods by selected type
-  const filteredPaymentMethods = selectedPaymentType
-    ? paymentMethods.filter((pm) => pm.type === selectedPaymentType)
-    : []
-
-  const handlePaymentTypeChange = (type: PaymentMethodType | '') => {
-    // Ignore empty value if we've already initialized from existing expense
-    // This prevents Radix Select from resetting the value during controlled updates
-    if (type === '' && paymentMethodInitialized.current) {
-      return
+  // Group payment methods by type for single-step dropdown
+  const paymentMethodsByType = useMemo(() => {
+    const grouped = new Map<string, typeof paymentMethods>()
+    for (const pm of paymentMethods) {
+      const group = grouped.get(pm.type) || []
+      group.push(pm)
+      grouped.set(pm.type, group)
     }
-    setSelectedPaymentType(type)
-    setSelectedPaymentMethodId('') // Reset selected payment method
-  }
+    return grouped
+  }, [paymentMethods])
 
   const onSubmit = async (data: ExpenseFormData) => {
     if (!user) return
@@ -817,58 +807,38 @@ export function ExpenseFormPage() {
                   </div>
                 </div>
 
-                {/* Payment Method - Two-step selection */}
+                {/* Payment Method */}
                 {paymentMethods.length > 0 && (
                   <div id="field-payment-method" className="space-y-2">
                     <Label>Payment Method (Optional)</Label>
-                    <div className="flex gap-2">
-                      {/* Step 1: Select payment type */}
-                      <Select
-                        value={selectedPaymentType}
-                        onValueChange={(v) => handlePaymentTypeChange(v as PaymentMethodType | '')}
-                      >
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PAYMENT_METHOD_TYPES.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      {/* Step 2: Select specific method */}
-                      <Select
-                        value={selectedPaymentMethodId}
-                        onValueChange={(v) => {
-                          // Ignore empty value if we've already initialized from existing expense
-                          if (v === '' && paymentMethodInitialized.current) {
-                            return
-                          }
-                          setSelectedPaymentMethodId(v)
-                        }}
-                        disabled={!selectedPaymentType || filteredPaymentMethods.length === 0}
-                      >
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder={selectedPaymentType ? 'Select' : 'Select type first'} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {filteredPaymentMethods.map((pm) => (
-                            <SelectItem key={pm.id} value={pm.id}>
-                              {pm.name}
-                              {pm.lastFourDigits && ` (${pm.lastFourDigits})`}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {selectedPaymentType && filteredPaymentMethods.length === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        No {PAYMENT_METHOD_TYPES.find((t) => t.value === selectedPaymentType)?.label} payment methods added yet.
-                      </p>
-                    )}
+                    <Select
+                      value={selectedPaymentMethodId}
+                      onValueChange={(v) => {
+                        if (v === '' && paymentMethodInitialized.current) return
+                        setSelectedPaymentMethodId(v)
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select payment method" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PAYMENT_METHOD_TYPES.map((type) => {
+                          const methods = paymentMethodsByType.get(type.value)
+                          if (!methods || methods.length === 0) return null
+                          return (
+                            <SelectGroup key={type.value}>
+                              <SelectLabel>{type.label}</SelectLabel>
+                              {methods.map((pm) => (
+                                <SelectItem key={pm.id} value={pm.id}>
+                                  {pm.name}
+                                  {pm.lastFourDigits && ` (${pm.lastFourDigits})`}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          )
+                        })}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
 
@@ -1034,7 +1004,7 @@ export function ExpenseFormPage() {
           <div className="space-y-2">
             <Label>Transaction Type</Label>
             <Select
-              value={watch('type')}
+              value={watchedType}
               onValueChange={(value) => setValue('type', value as 'expense' | 'transfer' | 'household_transfer')}
             >
               <SelectTrigger>
@@ -1050,11 +1020,11 @@ export function ExpenseFormPage() {
         )}
 
         {/* Recipient selector for household transfer */}
-        {watch('type') === 'household_transfer' && (
+        {watchedType === 'household_transfer' && (
           <div className="space-y-2">
             <Label>Give to</Label>
             <Select
-              value={watch('toUserId') || ''}
+              value={watchedToUserId || ''}
               onValueChange={(value) => setValue('toUserId', value)}
             >
               <SelectTrigger>

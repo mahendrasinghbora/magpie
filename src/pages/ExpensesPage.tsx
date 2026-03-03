@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Search, Filter, ChevronLeft, ChevronRight, CalendarDays, Receipt, SearchX } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
@@ -39,14 +39,17 @@ export function ExpensesPage() {
     householdMembers,
     paymentMethods,
     removeExpense,
+    addExpense,
   } = useStore()
 
   const [loading, setLoading] = useState(true)
+  const [monthLoading, setMonthLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
   const [detailSheetOpen, setDetailSheetOpen] = useState(false)
   const [monthPickerOpen, setMonthPickerOpen] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(50)
 
   // Check if any filters are active
   const hasActiveFilters = useMemo(() => {
@@ -92,7 +95,14 @@ export function ExpensesPage() {
   const loadData = useCallback(async (showLoader = true) => {
     if (!user) return
 
-    if (showLoader) setLoading(true)
+    // Full skeleton only on initial load (no expenses yet), otherwise light spinner
+    if (showLoader) {
+      if (expenses.length === 0) {
+        setLoading(true)
+      } else {
+        setMonthLoading(true)
+      }
+    }
     try {
       const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
       const endDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0, 23, 59, 59)
@@ -109,28 +119,88 @@ export function ExpensesPage() {
       toast.error('Failed to load expenses')
     } finally {
       setLoading(false)
+      setMonthLoading(false)
     }
-  }, [user, currentMonth, categories.length, setExpenses, setCategories])
+  }, [user, currentMonth, categories.length, expenses.length, setExpenses, setCategories])
 
   // Initial load and on month change
   useEffect(() => {
     loadData()
   }, [loadData])
 
+  // Reset visible count on month/filter/search change
+  useEffect(() => {
+    setVisibleCount(50)
+  }, [currentMonth, filters, searchQuery])
+
   // Pull to refresh handler
   const handleRefresh = useCallback(async () => {
     await loadData(false)
   }, [loadData])
 
-  // Delete expense handler
-  const handleDeleteExpense = useCallback(async (expenseId: string) => {
-    await deleteExpense(expenseId)
+  // Undo-on-delete: optimistic remove, delayed server delete, undo restores
+  const pendingDeletes = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; expense: Expense }>())
+
+  const handleDeleteExpense = useCallback((expenseId: string) => {
+    const expense = expenses.find((e) => e.id === expenseId)
+    if (!expense) return
+
+    // Optimistic remove from store
     removeExpense(expenseId)
-    toast.success('Expense deleted')
-  }, [removeExpense])
+
+    // Clear any existing pending delete for this expense
+    const existing = pendingDeletes.current.get(expenseId)
+    if (existing) clearTimeout(existing.timer)
+
+    // Schedule server delete after 5s
+    const timer = setTimeout(async () => {
+      pendingDeletes.current.delete(expenseId)
+      try {
+        await deleteExpense(expenseId)
+      } catch (error) {
+        console.error('Error deleting expense:', error)
+        // Restore on server error
+        addExpense(expense)
+        toast.error('Failed to delete expense')
+      }
+    }, 5000)
+
+    pendingDeletes.current.set(expenseId, { timer, expense })
+
+    toast('Expense deleted', {
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          const pending = pendingDeletes.current.get(expenseId)
+          if (pending) {
+            clearTimeout(pending.timer)
+            pendingDeletes.current.delete(expenseId)
+            addExpense(pending.expense)
+          }
+        },
+      },
+      duration: 5000,
+    })
+  }, [expenses, removeExpense, addExpense])
+
+  // Flush pending deletes on unmount
+  useEffect(() => {
+    const ref = pendingDeletes.current
+    return () => {
+      ref.forEach(async ({ timer, expense }) => {
+        clearTimeout(timer)
+        try {
+          await deleteExpense(expense.id)
+        } catch {
+          // best-effort cleanup
+        }
+      })
+      ref.clear()
+    }
+  }, [])
 
   // Filter expenses
-  const filteredExpenses = expenses.filter((expense) => {
+  const filteredExpenses = useMemo(() => expenses.filter((expense) => {
     // View mode filter
     if (viewMode === 'my' && user && expense.userId !== user.id) {
       return false
@@ -182,17 +252,37 @@ export function ExpensesPage() {
     }
 
     return true
-  })
+  }), [expenses, viewMode, user, searchQuery, categories, filters])
 
   // Group expenses by date
-  const groupedExpenses = filteredExpenses.reduce((groups, expense) => {
+  const groupedExpenses = useMemo(() => filteredExpenses.reduce((groups, expense) => {
     const dateKey = formatDate(expense.date)
     if (!groups[dateKey]) {
       groups[dateKey] = []
     }
     groups[dateKey].push(expense)
     return groups
-  }, {} as Record<string, Expense[]>)
+  }, {} as Record<string, Expense[]>), [filteredExpenses])
+
+  // Paginate: slice grouped data to visibleCount
+  const { visibleGroupedExpenses, hasMore, remainingCount } = useMemo(() => {
+    const entries = Object.entries(groupedExpenses)
+    let count = 0
+    const visible: Record<string, Expense[]> = {}
+    for (const [date, dayExpenses] of entries) {
+      if (count >= visibleCount) break
+      const remaining = visibleCount - count
+      const slice = dayExpenses.slice(0, remaining)
+      visible[date] = slice
+      count += slice.length
+    }
+    const total = filteredExpenses.length
+    return {
+      visibleGroupedExpenses: visible,
+      hasMore: count < total,
+      remainingCount: total - count,
+    }
+  }, [groupedExpenses, visibleCount, filteredExpenses.length])
 
   const getMemberInfo = (userId: string) => {
     return householdMembers.find((m) => m.id === userId)
@@ -230,7 +320,7 @@ export function ExpensesPage() {
 
         {/* Month Navigation */}
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="icon" onClick={goToPreviousMonth}>
+          <Button variant="ghost" size="icon" className="h-11 w-11" onClick={goToPreviousMonth}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <Popover open={monthPickerOpen} onOpenChange={setMonthPickerOpen}>
@@ -265,7 +355,7 @@ export function ExpensesPage() {
               </ScrollArea>
             </PopoverContent>
           </Popover>
-          <Button variant="ghost" size="icon" onClick={goToNextMonth}>
+          <Button variant="ghost" size="icon" className="h-11 w-11" onClick={goToNextMonth}>
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
@@ -292,9 +382,16 @@ export function ExpensesPage() {
         </div>
       </div>
 
+      {/* Month loading spinner */}
+      {monthLoading && (
+        <div className="flex justify-center py-3">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      )}
+
       {/* Expense List */}
       <div className="space-y-4 p-4 pt-0">
-        {Object.entries(groupedExpenses).map(([date, dayExpenses]) => (
+        {Object.entries(visibleGroupedExpenses).map(([date, dayExpenses]) => (
           <div key={date}>
             <p className="mb-2 text-sm font-medium text-muted-foreground">{date}</p>
             <div className="space-y-2">
@@ -414,6 +511,17 @@ export function ExpensesPage() {
             </div>
           </div>
         ))}
+
+        {/* Load More */}
+        {hasMore && (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setVisibleCount((prev) => prev + 50)}
+          >
+            Load more ({remainingCount} remaining)
+          </Button>
+        )}
 
         {/* Empty State */}
         {filteredExpenses.length === 0 && (

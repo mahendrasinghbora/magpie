@@ -15,6 +15,7 @@ import {
   writeBatch,
   type DocumentData,
   type QueryConstraint,
+  documentId,
 } from 'firebase/firestore'
 import { db } from '@/config/firebase'
 import type {
@@ -533,30 +534,24 @@ export async function getHouseholdMembers(
   householdId: string
 ): Promise<{ id: string; displayName: string; photoURL: string }[]> {
   const household = await getHousehold(householdId)
-  if (!household) {
+  if (!household || household.members.length === 0) {
     return []
   }
 
-  const members = await Promise.all(
-    household.members.map(async (memberId) => {
-      const userDoc = await getDoc(doc(db, 'users', memberId))
-      if (!userDoc.exists()) {
-        return null
-      }
-      const userData = userDoc.data()
-      return {
-        id: memberId,
-        displayName: userData.displayName,
-        photoURL: userData.photoURL,
-      }
-    })
+  const q = query(
+    collection(db, 'users'),
+    where(documentId(), 'in', household.members)
   )
+  const snapshot = await getDocs(q)
 
-  return members.filter((m) => m !== null) as {
-    id: string
-    displayName: string
-    photoURL: string
-  }[]
+  return snapshot.docs.map((userDoc) => {
+    const userData = userDoc.data()
+    return {
+      id: userDoc.id,
+      displayName: userData.displayName,
+      photoURL: userData.photoURL,
+    }
+  })
 }
 
 // ============== User Profile ==============

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Receipt } from 'lucide-react'
 import { toast } from 'sonner'
@@ -41,7 +41,6 @@ export function DashboardPage() {
     setHouseholdMembers,
   } = useStore()
 
-  const [stats, setStats] = useState<MonthlyStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [householdTotalIncome, setHouseholdTotalIncome] = useState(0)
 
@@ -113,8 +112,8 @@ export function DashboardPage() {
   }, [loadData])
 
   // Calculate stats
-  useEffect(() => {
-    if (!expenses || categories.length === 0) return
+  const stats = useMemo<MonthlyStats | null>(() => {
+    if (!expenses || categories.length === 0) return null
 
     // Filter expenses based on view mode
     const filteredExpenses = viewMode === 'my' && user
@@ -196,7 +195,7 @@ export function DashboardPage() {
       }
     })
 
-    setStats({
+    return {
       totalIncome,
       totalExpenses,
       totalTransfers,
@@ -204,7 +203,7 @@ export function DashboardPage() {
       savedPercentage,
       byCategory,
       byUser,
-    })
+    }
   }, [expenses, categories, viewMode, monthlyIncome, householdTotalIncome, householdMembers, user, paymentMethods])
 
   if (loading) {
@@ -233,11 +232,11 @@ export function DashboardPage() {
 
       {/* Month Navigation */}
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="icon" onClick={goToPreviousMonth}>
+        <Button variant="ghost" size="icon" className="h-11 w-11" onClick={goToPreviousMonth}>
           <ChevronLeft className="h-5 w-5" />
         </Button>
         <h2 className="text-lg font-semibold">{formatMonth(currentMonth)}</h2>
-        <Button variant="ghost" size="icon" onClick={goToNextMonth}>
+        <Button variant="ghost" size="icon" className="h-11 w-11" onClick={goToNextMonth}>
           <ChevronRight className="h-5 w-5" />
         </Button>
       </div>

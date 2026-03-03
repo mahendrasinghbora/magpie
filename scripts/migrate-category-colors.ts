@@ -18,7 +18,7 @@ const db = getFirestore()
 // Map of category name → new color
 const COLOR_UPDATES: Record<string, string> = {
   'Groceries': '#22c55e',
-  'Bike Taxi': '#18181b',
+  'Bike Taxi': '#52525b',
   'Auto': '#0d9488',
   'Fuel & Vehicle': '#b45309',
   'Bills & Utilities': '#8b5cf6',

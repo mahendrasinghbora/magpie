@@ -6,7 +6,7 @@ export const DEFAULT_CATEGORIES: Omit<Category, 'id' | 'householdId'>[] = [
   { name: 'Food Delivery', icon: 'PackageOpen', color: '#f97316', isCustom: false, isTransfer: false, order: 2 },
   { name: 'Groceries', icon: 'ShoppingBasket', color: '#22c55e', isCustom: false, isTransfer: false, order: 3 },
   { name: 'Quick Commerce', icon: 'Zap', color: '#eab308', isCustom: false, isTransfer: false, order: 4 },
-  { name: 'Bike Taxi', icon: 'Bike', color: '#18181b', isCustom: false, isTransfer: false, order: 5 },
+  { name: 'Bike Taxi', icon: 'Bike', color: '#52525b', isCustom: false, isTransfer: false, order: 5 },
   { name: 'Auto', icon: 'CarTaxiFront', color: '#0d9488', isCustom: false, isTransfer: false, order: 6 },
   { name: 'Cab', icon: 'Car', color: '#3b82f6', isCustom: false, isTransfer: false, order: 7 },
   { name: 'Transport', icon: 'TrainFront', color: '#6366f1', isCustom: false, isTransfer: false, order: 8 },

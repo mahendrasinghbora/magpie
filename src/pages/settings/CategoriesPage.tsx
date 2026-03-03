@@ -41,7 +41,7 @@ const categorySchema = z.object({
 type CategoryFormData = z.infer<typeof categorySchema>
 
 const COLORS = [
-  '#18181b', '#dc2626', '#ef4444', '#f97316',
+  '#52525b', '#dc2626', '#ef4444', '#f97316',
   '#b45309', '#eab308', '#22c55e', '#16a34a',
   '#0d9488', '#06b6d4', '#0ea5e9', '#3b82f6',
   '#6366f1', '#7c3aed', '#8b5cf6', '#a855f7',

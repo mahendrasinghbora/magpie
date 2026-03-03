@@ -5,9 +5,10 @@ import { formatAmount } from '@/config/constants'
 
 interface CategoryPieChartProps {
   data: CategoryStats[]
+  onCategoryClick?: (categoryId: string) => void
 }
 
-export function CategoryPieChart({ data }: CategoryPieChartProps) {
+export function CategoryPieChart({ data, onCategoryClick }: CategoryPieChartProps) {
   const [activeData, setActiveData] = useState<{ name: string; value: number } | null>(null)
 
   // Take top 5 categories and group rest as "Others"
@@ -20,13 +21,15 @@ export function CategoryPieChart({ data }: CategoryPieChartProps) {
           name: cat.categoryName,
           value: cat.total,
           color: cat.categoryColor,
+          categoryId: cat.categoryId,
         })),
-        { name: 'Others', value: othersTotal, color: '#71717a' },
+        { name: 'Others', value: othersTotal, color: '#71717a', categoryId: '' },
       ]
     : topCategories.map((cat) => ({
         name: cat.categoryName,
         value: cat.total,
         color: cat.categoryColor,
+        categoryId: cat.categoryId,
       }))
 
   const total = chartData.reduce((sum, item) => sum + item.value, 0)
@@ -45,7 +48,13 @@ export function CategoryPieChart({ data }: CategoryPieChartProps) {
             dataKey="value"
             onMouseEnter={(_, index) => setActiveData(chartData[index])}
             onMouseLeave={() => setActiveData(null)}
-            onClick={(_, index) => setActiveData(chartData[index])}
+            onClick={(_, index) => {
+              const item = chartData[index]
+              setActiveData(item)
+              if (onCategoryClick && item.categoryId) {
+                onCategoryClick(item.categoryId)
+              }
+            }}
           >
             {chartData.map((entry, index) => (
               <Cell

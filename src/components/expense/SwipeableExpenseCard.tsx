@@ -1,4 +1,4 @@
-import { useState, useRef, type ReactNode } from 'react'
+import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -7,15 +7,29 @@ interface SwipeableExpenseCardProps {
   onDelete: () => void
   onClick: () => void
   canDelete?: boolean
+  showHint?: boolean
 }
 
-export function SwipeableExpenseCard({ children, onDelete, onClick, canDelete = true }: SwipeableExpenseCardProps) {
+export function SwipeableExpenseCard({ children, onDelete, onClick, canDelete = true, showHint = false }: SwipeableExpenseCardProps) {
   const [offsetX, setOffsetX] = useState(0)
   const [showDelete, setShowDelete] = useState(false)
   const startX = useRef(0)
   const startY = useRef(0)
   const isDragging = useRef(false)
   const isHorizontalSwipe = useRef<boolean | null>(null)
+
+  // One-time peek animation to teach swipe gesture
+  useEffect(() => {
+    if (!showHint || !canDelete) return
+    const delay = setTimeout(() => {
+      setOffsetX(-30)
+      const bounce = setTimeout(() => {
+        setOffsetX(0)
+      }, 400)
+      return () => clearTimeout(bounce)
+    }, 600)
+    return () => clearTimeout(delay)
+  }, [showHint, canDelete])
 
   const deleteButtonWidth = 80
 

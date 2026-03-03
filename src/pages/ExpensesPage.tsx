@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { Search, Filter, ChevronLeft, ChevronRight, CalendarDays, Receipt, SearchX } from 'lucide-react'
+import { Search, X, Filter, ChevronLeft, ChevronRight, CalendarDays, Receipt, SearchX } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { useStore } from '@/store/useStore'
@@ -44,7 +44,9 @@ export function ExpensesPage() {
 
   const [loading, setLoading] = useState(true)
   const [monthLoading, setMonthLoading] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null)
   const [detailSheetOpen, setDetailSheetOpen] = useState(false)
@@ -284,6 +286,20 @@ export function ExpensesPage() {
     }
   }, [groupedExpenses, visibleCount, filteredExpenses.length])
 
+  // Monthly spending total (exclude transfers — they're not spending)
+  const monthlyTotal = useMemo(() => {
+    return filteredExpenses
+      .filter((e) => e.type === 'expense' || (e.type === 'household_transfer' && viewMode === 'my'))
+      .reduce((sum, e) => sum + e.amount, 0)
+  }, [filteredExpenses, viewMode])
+
+  // Show swipe hint on first card, once ever
+  const swipeHintShown = useRef(() => {
+    try { return localStorage.getItem('magpie:swipeHintShown') === '1' } catch { return false }
+  })
+  const [showSwipeHint, setShowSwipeHint] = useState(!swipeHintShown.current())
+  const firstCardHinted = useRef(false)
+
   const getMemberInfo = (userId: string) => {
     return householdMembers.find((m) => m.id === userId)
   }
@@ -300,22 +316,38 @@ export function ExpensesPage() {
         <div className="sticky top-0 z-10 space-y-3 bg-background p-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">Expenses</h1>
-          <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="relative">
-                <Filter className="h-4 w-4" />
-                {hasActiveFilters && (
-                  <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-primary" />
-                )}
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-[80vh]">
-              <SheetHeader>
-                <SheetTitle>Filters</SheetTitle>
-              </SheetHeader>
-              <ExpenseFilters onClose={() => setFiltersOpen(false)} />
-            </SheetContent>
-          </Sheet>
+          <div className="flex items-center gap-1">
+            <Button
+              variant={searchOpen ? 'default' : 'outline'}
+              size="icon"
+              onClick={() => {
+                setSearchOpen((prev) => {
+                  if (prev) setSearchQuery('')
+                  return !prev
+                })
+                // Focus input after opening
+                setTimeout(() => searchInputRef.current?.focus(), 50)
+              }}
+            >
+              {searchOpen ? <X className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+            </Button>
+            <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="relative">
+                  <Filter className="h-4 w-4" />
+                  {hasActiveFilters && (
+                    <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-primary" />
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="h-[80vh]">
+                <SheetHeader>
+                  <SheetTitle>Filters</SheetTitle>
+                </SheetHeader>
+                <ExpenseFilters onClose={() => setFiltersOpen(false)} />
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
 
         {/* Month Navigation */}
@@ -370,17 +402,32 @@ export function ExpensesPage() {
           </Tabs>
         )}
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search expenses..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        {/* Search (collapsible) */}
+        {searchOpen && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              ref={searchInputRef}
+              placeholder="Search expenses..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        )}
       </div>
+
+      {/* Monthly total */}
+      {filteredExpenses.length > 0 && (
+        <div className="flex items-center justify-between border-b px-4 py-2">
+          <span className="text-sm text-muted-foreground">
+            {filteredExpenses.length} expense{filteredExpenses.length !== 1 ? 's' : ''}
+          </span>
+          <span className="text-sm font-semibold text-destructive">
+            {formatAmount(monthlyTotal)}
+          </span>
+        </div>
+      )}
 
       {/* Month loading spinner */}
       {monthLoading && (
@@ -413,6 +460,14 @@ export function ExpensesPage() {
                 // Tags: max 3
                 const displayTags = expense.tags.slice(0, 3)
 
+                const isFirstHint = showSwipeHint && !firstCardHinted.current && expense.userId === user?.id
+                if (isFirstHint) {
+                  firstCardHinted.current = true
+                  try { localStorage.setItem('magpie:swipeHintShown', '1') } catch { /* */ }
+                  // Dismiss hint state after animation
+                  setTimeout(() => setShowSwipeHint(false), 1500)
+                }
+
                 return (
                   <SwipeableExpenseCard
                     key={expense.id}
@@ -422,6 +477,7 @@ export function ExpensesPage() {
                       setDetailSheetOpen(true)
                     }}
                     canDelete={expense.userId === user?.id}
+                    showHint={isFirstHint}
                   >
                     <Card className="cursor-pointer transition-colors hover:bg-muted/50">
                       <CardContent className="flex gap-3 p-3">

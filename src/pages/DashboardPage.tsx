@@ -39,6 +39,8 @@ export function DashboardPage() {
     setHousehold,
     householdMembers,
     setHouseholdMembers,
+    resetFilters,
+    setFilters,
   } = useStore()
 
   const [loading, setLoading] = useState(true)
@@ -206,6 +208,12 @@ export function DashboardPage() {
     }
   }, [expenses, categories, viewMode, monthlyIncome, householdTotalIncome, householdMembers, user, paymentMethods])
 
+  const handleCategoryClick = (categoryId: string) => {
+    resetFilters()
+    setFilters({ categoryIds: [categoryId] })
+    navigate('/expenses')
+  }
+
   if (loading) {
     return <DashboardSkeleton />
   }
@@ -321,7 +329,7 @@ export function DashboardPage() {
             <CardTitle className="text-base">Spending by Category</CardTitle>
           </CardHeader>
           <CardContent>
-            <CategoryPieChart data={stats.byCategory} />
+            <CategoryPieChart data={stats.byCategory} onCategoryClick={handleCategoryClick} />
           </CardContent>
         </Card>
       )}
@@ -346,7 +354,11 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {stats.byCategory.slice(0, 5).map((cat) => (
-              <div key={cat.categoryId} className="flex items-center justify-between">
+              <div
+                key={cat.categoryId}
+                className="flex cursor-pointer items-center justify-between rounded-md px-1 py-0.5 -mx-1 transition-colors hover:bg-muted/50 active:bg-muted"
+                onClick={() => handleCategoryClick(cat.categoryId)}
+              >
                 <div className="flex items-center gap-2">
                   <div
                     className="h-3 w-3 rounded-full"

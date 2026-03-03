@@ -167,8 +167,8 @@ export function ExpenseDetailSheet({
             </div>
           )}
 
-          {/* Added by (household view) */}
-          {memberInfo && (
+          {/* Added by (household view, only for other members' expenses) */}
+          {memberInfo && currentUserId !== expense.userId && (
             <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={memberInfo.photoURL} />
@@ -181,8 +181,8 @@ export function ExpenseDetailSheet({
             </div>
           )}
 
-          {/* Edit Button - only show if current user owns the expense */}
-          {currentUserId === expense.userId && (
+          {/* Edit Button - show if current user owns the expense */}
+          {(!currentUserId || currentUserId === expense.userId) && (
             <Button onClick={handleEdit} className="w-full" size="lg">
               <Pencil className="mr-2 h-4 w-4" />
               Edit Expense

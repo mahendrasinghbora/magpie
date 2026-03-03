@@ -437,7 +437,7 @@ export function ExpensesPage() {
       )}
 
       {/* Expense List */}
-      <div className="space-y-4 p-4 pt-0">
+      <div className="space-y-4 p-4 pt-2">
         {Object.entries(visibleGroupedExpenses).map(([date, dayExpenses]) => (
           <div key={date}>
             <p className="mb-2 text-sm font-medium text-muted-foreground">{date}</p>

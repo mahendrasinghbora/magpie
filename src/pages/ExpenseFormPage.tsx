@@ -776,6 +776,15 @@ export function ExpenseFormPage() {
 
             <CollapsibleContent>
               <div className="space-y-6 pt-2">
+                {/* Payee */}
+                <div id="field-payee" className="space-y-2">
+                  <Label>Payee (Optional)</Label>
+                  <Input
+                    {...register('payee')}
+                    placeholder="Who did you pay?"
+                  />
+                </div>
+
                 {/* Date and Time Picker */}
                 <div id="field-date-time" className="space-y-2">
                   <Label>Date & Time</Label>
@@ -862,15 +871,6 @@ export function ExpenseFormPage() {
                     )}
                   </div>
                 )}
-
-                {/* Payee */}
-                <div id="field-payee" className="space-y-2">
-                  <Label>Payee (Optional)</Label>
-                  <Input
-                    {...register('payee')}
-                    placeholder="Who did you pay?"
-                  />
-                </div>
 
                 {/* Tags */}
                 <div id="field-tags" className="space-y-2">

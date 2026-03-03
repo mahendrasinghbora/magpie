@@ -41,9 +41,12 @@ const categorySchema = z.object({
 type CategoryFormData = z.infer<typeof categorySchema>
 
 const COLORS = [
-  '#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e',
-  '#14b8a6', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6',
-  '#a855f7', '#d946ef', '#ec4899', '#f43f5e',
+  '#18181b', '#dc2626', '#ef4444', '#f97316',
+  '#b45309', '#eab308', '#22c55e', '#16a34a',
+  '#0d9488', '#06b6d4', '#0ea5e9', '#3b82f6',
+  '#6366f1', '#7c3aed', '#8b5cf6', '#a855f7',
+  '#d946ef', '#ec4899', '#f472b6', '#e11d48',
+  '#78716c', '#64748b', '#94a3b8', '#71717a',
 ]
 
 export function CategoriesPage() {
@@ -108,19 +111,41 @@ export function CategoriesPage() {
     setLoading(true)
     try {
       if (editingCategory) {
-        // Update existing category
-        await updateCategory(editingCategory.id, {
-          name: data.name,
-          icon: data.icon as CategoryIcon,
-          color: data.color,
-        })
-        setCategories(
-          categories.map((c) =>
-            c.id === editingCategory.id
-              ? { ...c, name: data.name, icon: data.icon as CategoryIcon, color: data.color }
-              : c
+        if (editingCategory.isCustom) {
+          // Update existing custom category
+          await updateCategory(editingCategory.id, {
+            name: data.name,
+            icon: data.icon as CategoryIcon,
+            color: data.color,
+          })
+          setCategories(
+            categories.map((c) =>
+              c.id === editingCategory.id
+                ? { ...c, name: data.name, icon: data.icon as CategoryIcon, color: data.color }
+                : c
+            )
           )
-        )
+        } else {
+          // Default category — create a household override instead
+          const maxOrder = Math.max(...categories.map((c) => c.order), 0)
+          const newId = await createCategory({
+            name: data.name,
+            icon: data.icon as CategoryIcon,
+            color: data.color,
+            isCustom: true,
+            isTransfer: editingCategory.isTransfer,
+            order: maxOrder + 1,
+            householdId: user.householdId,
+          })
+          // Replace the default category with the custom one in local state
+          setCategories(
+            categories.map((c) =>
+              c.id === editingCategory.id
+                ? { ...c, id: newId, name: data.name, icon: data.icon as CategoryIcon, color: data.color, isCustom: true, householdId: user.householdId }
+                : c
+            )
+          )
+        }
         toast.success('Category updated')
       } else {
         // Create new category
